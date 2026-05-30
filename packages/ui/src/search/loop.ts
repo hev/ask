@@ -137,7 +137,8 @@ export async function* runAgenticAnswerLoop({
   if (lastRole(messages) === 'assistant') {
     messages.push({
       role: 'user',
-      content: 'Write your answer now, grounded in the search results above. Link only with the provided URLs.',
+      content:
+        'Write the answer now. Begin directly with the answer itself — no preamble, no "based on…" opener, no headings. Link only with the provided URLs.',
     });
   }
 
@@ -195,11 +196,12 @@ function buildSystemPrompt(config: SearchLoopConfig, kg: KnowledgeGraph): Anthro
 
 You decide how many searches to run, up to ${config.maxIterations}. Issue focused sub-queries with the search tool: vary terms, try synonyms, and decompose multi-part questions. When you have gathered enough context, stop calling the search tool and write your answer.
 
-Write a concise, helpful answer in Markdown:
+Write a short, direct answer in Markdown:
+- Start IMMEDIATELY with the substance. Your first sentence must answer the question. Never open with "Based on…", "Here is…", "Sure", a restatement of the question, or any summary/preamble.
+- Keep it tight: one or two short paragraphs, plus a short bullet list only if it genuinely helps. This renders in a small search popover, so do NOT use headings (#, ##) or horizontal rules (---).
 - Ground every claim in the retrieved sections.
 - When you reference a section, link to it inline using its exact \`url\` from the search results, for example: [autoscaling](/docs/concepts#kubernetes-autoscaling). Never invent a URL or anchor — only link to URLs that appear in the search results.
-- If the documentation does not cover the question, say so plainly and do not fabricate an answer.
-- Be direct: no preamble, no meta-commentary, no "based on the documentation" filler.`,
+- If the documentation does not cover the question, say so plainly in one sentence and do not fabricate an answer.`,
     },
     {
       type: 'text',

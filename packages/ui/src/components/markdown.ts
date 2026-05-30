@@ -44,6 +44,13 @@ export function renderMarkdown(md: string, sources: Source[] = []): string {
 
 function renderBlock(block: string, urlMap: Map<string, Source>): string {
   if (!block) return '';
+  // Horizontal rules and headings don't belong in a compact popover; the model
+  // is told not to use them, but degrade them gracefully if it does.
+  if (/^(-{3,}|\*{3,}|_{3,})$/.test(block)) return '';
+  const heading = block.match(/^#{1,6}\s+(.+)$/);
+  if (heading && !block.includes('\n')) {
+    return `<p><strong>${renderInline(escapeHtml(heading[1]), urlMap)}</strong></p>`;
+  }
   const lines = block.split('\n');
   if (lines.every((line) => !line.trim() || LIST_ITEM_RE.test(line))) {
     const items = lines.filter((line) => line.trim());

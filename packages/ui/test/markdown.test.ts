@@ -38,6 +38,13 @@ test('renders bold, inline code, and lists', () => {
   assert.match(ordered, /<ol><li>first<\/li><li>second<\/li><\/ol>/);
 });
 
+test('degrades headings to bold and drops horizontal rules', () => {
+  const heading = renderMarkdown('## Index CRD');
+  assert.match(heading, /<p><strong>Index CRD<\/strong><\/p>/);
+  assert.ok(!heading.includes('##'));
+  assert.equal(renderMarkdown('---'), '');
+});
+
 test('sourceBreadcrumb joins group and heading', () => {
   assert.equal(sourceBreadcrumb(sources[0]), 'Overview › Kubernetes autoscaling');
   assert.equal(escapeHtml('a & b'), 'a &amp; b');
