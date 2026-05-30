@@ -86,6 +86,19 @@ pnpm build
 pnpm kg:verify
 ```
 
+## Publishing
+
+This package is intended to publish as `@hev/find`. Before publishing, bump the
+version, run the verification gates, inspect `pnpm --filter @hev/find pack
+--dry-run`, then publish from this package directory with:
+
+```sh
+pnpm publish --access public
+```
+
+After publish, consumers should depend on the npm semver range instead of the
+Git `path:/packages/ui` dependency.
+
 ## Server Requirements
 
 - Set `ANTHROPIC_API_KEY` for AI search and fresh KG generation.

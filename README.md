@@ -96,3 +96,17 @@ pnpm exec hev-find-kg verify
 `build` writes `.hev-find/kg.json` and skips the model call when the current
 content hash already matches. `verify` builds the site and checks that every
 heading chunk URL points at a real rendered anchor.
+
+## Publishing Plan
+
+The package is structured for npm distribution as `@hev/find`, with `src`
+exports for Astro/Vite consumers and a plain JavaScript `hev-find-kg` bin for
+CLI use from `node_modules`.
+
+Before publishing:
+
+1. Set the intended semver in `packages/ui/package.json`.
+2. Run `pnpm test`, `pnpm typecheck`, `pnpm build`, and `pnpm kg:verify`.
+3. Dry-run the package with `pnpm --filter @hev/find pack --dry-run`.
+4. Publish from `packages/ui` with `pnpm publish --access public`.
+5. Move consumers from the Git dependency to `@hev/find@<version>`.

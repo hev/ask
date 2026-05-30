@@ -19,10 +19,11 @@
   "homepage": "https://github.com/hev/find#readme",
   "sideEffects": false,
   "files": [
+    "bin",
     "src"
   ],
   "bin": {
-    "hev-find-kg": "./src/kg/cli.ts"
+    "hev-find-kg": "./bin/hev-find-kg.mjs"
   },
   "exports": {
     ".": "./src/index.ts",
@@ -31,8 +32,8 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "kg:build": "node src/kg/cli.ts build",
-    "kg:verify": "node src/kg/cli.ts verify",
+    "kg:build": "node bin/hev-find-kg.mjs build",
+    "kg:verify": "node bin/hev-find-kg.mjs verify",
     "test": "node --test test/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
