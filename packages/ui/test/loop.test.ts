@@ -30,6 +30,20 @@ function streamText(...chunks: string[]): StreamClaude {
   } as unknown as StreamClaude;
 }
 
+// Captures the options the answer turn is called with, then streams `chunks`.
+function capturingStream(sink: { opts?: any }, ...chunks: string[]): StreamClaude {
+  return (async function* (opts: any) {
+    sink.opts = opts;
+    for (const text of chunks) yield { type: 'text', text } as StreamEvent;
+    yield { type: 'stop', stopReason: 'end_turn' } as StreamEvent;
+  }) as unknown as StreamClaude;
+}
+
+function lastRole(opts: any): string {
+  const messages = opts.messages as Array<{ role: string }>;
+  return messages[messages.length - 1].role;
+}
+
 async function drain(gen: AsyncGenerator<AgenticEvent>): Promise<AgenticEvent[]> {
   const events: AgenticEvent[] = [];
   for await (const ev of gen) events.push(ev);
@@ -81,6 +95,37 @@ test('answer loop runs searches, emits sources before tokens, then streams the a
   // The phase-1 loop never forces a tool choice; it only offers the search tool.
   assert.deepEqual(calls[0].toolChoice, { type: 'auto' });
   assert.equal(calls.length, 3);
+});
+
+test('answer turn always begins on a user turn so it cannot prefill-empty', async () => {
+  // The model searches once, then writes a text turn (it is "ready to answer").
+  // That trailing assistant text must not be left as the last message, or the
+  // streamed answer turn comes back empty.
+  const call: CallClaude = async (opts) => {
+    const searched = (opts.messages as unknown[]).some(
+      (m) => Array.isArray((m as { content: unknown }).content) && JSON.stringify(m).includes('tool_result'),
+    );
+    if (!searched) return { stop_reason: 'tool_use', content: [toolUse('s1', 'search', { query: 'index crd' })] };
+    return { stop_reason: 'end_turn', content: [{ type: 'text', text: 'I am ready.' }] };
+  };
+
+  const sink: { opts?: any } = {};
+  const events = await drain(
+    runAgenticAnswerLoop({
+      apiKey: 'k',
+      query: 'index crd',
+      chunks: makeChunks(),
+      kg,
+      config,
+      call,
+      stream: capturingStream(sink, 'The ', 'answer.'),
+    }),
+  );
+
+  assert.equal(lastRole(sink.opts), 'user', 'answer turn must end on a user message');
+  assert.equal(sink.opts.tools, undefined, 'answer turn runs with no tools');
+  const answer = events.filter((e) => e.type === 'token').map((e) => (e as { text: string }).text).join('');
+  assert.equal(answer, 'The answer.');
 });
 
 test('answer loop seeds a fallback search when the model never searches', async () => {

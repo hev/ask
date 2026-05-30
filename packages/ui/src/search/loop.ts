@@ -116,13 +116,28 @@ export async function* runAgenticAnswerLoop({
     messages.push({ role: 'user', content: toolResults });
   }
 
-  // Fallback: ground the answer even if the model never searched.
+  // Fallback: ground the answer even if the model never searched. Only append a
+  // results message when the conversation doesn't already end on a user turn,
+  // so we never produce two consecutive user messages.
   if (!seen.size) {
     const fresh = runSearchTool(query, chunks, byId, seen, kg, config);
     yield { type: 'search', query };
+    if (lastRole(messages) !== 'user') {
+      messages.push({
+        role: 'user',
+        content: `Search results:\n${JSON.stringify(fresh.map((candidate) => candidateForToolResult(candidate, byId)))}`,
+      });
+    }
+  }
+
+  // The answer turn must start a fresh assistant response. If the loop ended on
+  // an assistant turn (the model wrote text instead of searching), that message
+  // would otherwise be treated as a prefill and the streamed turn would come
+  // back empty — so nudge with a final user message.
+  if (lastRole(messages) === 'assistant') {
     messages.push({
       role: 'user',
-      content: `Search results:\n${JSON.stringify(fresh.map((candidate) => candidateForToolResult(candidate, byId)))}`,
+      content: 'Write your answer now, grounded in the search results above. Link only with the provided URLs.',
     });
   }
 
@@ -217,6 +232,10 @@ function sourcesFromSeen(seen: Map<string, SeenCandidate>, maxResults: number): 
     if (sources.length >= maxResults) break;
   }
   return sources;
+}
+
+function lastRole(messages: AnthropicMessage[]): AnthropicMessage['role'] | undefined {
+  return messages[messages.length - 1]?.role;
 }
 
 function normalizeToolQuery(input: unknown): string {
