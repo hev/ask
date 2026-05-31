@@ -47,6 +47,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     kg.glossary,
     Math.max(config.maxResults, config.candidatePerSearch),
     config.perDocCap,
+    kg.nodes,
   );
 
   const apiKey = resolveApiKey(locals);

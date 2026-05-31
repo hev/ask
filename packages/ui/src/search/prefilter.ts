@@ -1,5 +1,6 @@
-import type { GlossaryEntry } from '../kg/schema';
+import type { GlossaryEntry, KnowledgeNode } from '../kg/schema';
 import { expandQueryTerms } from '../kg/expand.ts';
+import { tokenize } from './chunk.ts';
 import type { Chunk } from './chunk';
 
 export interface Candidate {
@@ -11,9 +12,29 @@ export interface Candidate {
 }
 
 /**
+ * Distinctive tokens the knowledge graph carries for a section: its `terms`, the
+ * tokens of its distilled `summary`, and the tokens of its verbatim `facts`. A
+ * query term hitting any of these means the graph considers that section central
+ * to the term, so it earns a ranking boost over an incidental body mention.
+ */
+function nodeSignal(nodes: KnowledgeNode[] | undefined): Map<string, Set<string>> {
+  const signal = new Map<string, Set<string>>();
+  if (!nodes) return signal;
+  for (const node of nodes) {
+    const tokens = new Set<string>(node.terms);
+    for (const token of tokenize(node.summary)) tokens.add(token);
+    for (const fact of node.facts) for (const token of tokenize(fact.literal)) tokens.add(token);
+    signal.set(node.id, tokens);
+  }
+  return signal;
+}
+
+/**
  * Keyword prefilter over heading chunks. Query terms are widened through the
- * knowledge graph glossary, then capped per document so one page cannot crowd
- * out the rest of the result set.
+ * knowledge graph glossary, scored by token overlap — boosted by the graph's
+ * distilled per-section signal when `nodes` are present — then capped per
+ * document so one page cannot crowd out the rest of the result set. With no
+ * nodes it degrades to plain token overlap over the raw chunk text.
  */
 export function prefilter(
   chunks: Chunk[],
@@ -21,14 +42,20 @@ export function prefilter(
   glossary: GlossaryEntry[],
   pool: number,
   perDocCap: number,
+  nodes?: KnowledgeNode[],
 ): Candidate[] {
   const terms = expandQueryTerms(query, glossary);
   if (!terms.length) return [];
 
+  const signal = nodeSignal(nodes);
   const scored = chunks
     .map((chunk) => {
+      const boost = signal.get(chunk.id);
       let score = 0;
-      for (const term of terms) if (chunk.tokens.has(term)) score += 1;
+      for (const term of terms) {
+        if (chunk.tokens.has(term)) score += 1;
+        if (boost?.has(term)) score += 1;
+      }
       return { chunk, score };
     })
     .filter((candidate) => candidate.score > 0)

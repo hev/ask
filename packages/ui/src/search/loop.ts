@@ -136,7 +136,7 @@ async function* graphAnswerLoop({
   // Fallback: ground the answer even if the model opened nothing, by opening the
   // best keyword matches over the map.
   if (!opened.size) {
-    for (const candidate of prefilter(chunks, query, kg.glossary, config.maxResults, config.perDocCap)) {
+    for (const candidate of prefilter(chunks, query, kg.glossary, config.maxResults, config.perDocCap, kg.nodes)) {
       const node = open(candidate.id);
       if (node) yield { type: 'search', query: node.heading ?? node.title };
     }
@@ -357,7 +357,7 @@ function runSearchTool(
   kg: KnowledgeGraph,
   config: SearchLoopConfig,
 ): Candidate[] {
-  return prefilter(chunks, searchQuery, kg.glossary, config.candidatePerSearch, config.perDocCap)
+  return prefilter(chunks, searchQuery, kg.glossary, config.candidatePerSearch, config.perDocCap, kg.nodes)
     .filter((candidate) => !seen.has(candidate.id))
     .map((candidate) => {
       const chunk = byId.get(candidate.id);
