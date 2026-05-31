@@ -287,6 +287,81 @@ const {
     color: var(--as-accent);
   }
 
+  /* Empty-state suggested questions. */
+  .as-results :global(.as-suggest-label) {
+    padding: 8px 11px 4px;
+    font-family: var(--font-mono, "JetBrains Mono Variable", ui-monospace, monospace);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--as-muted);
+  }
+
+  .as-results :global(.as-suggest) {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 9px 11px;
+    border: none;
+    border-left: 2px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--as-fg);
+    font: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+
+  .as-results :global(.as-suggest:hover),
+  .as-results :global(.as-suggest:focus-visible) {
+    background: var(--as-hover);
+    border-left-color: var(--as-accent);
+    outline: none;
+  }
+
+  /* Ask-mode primary affordance row. */
+  .as-results :global(.as-ask-row) {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    text-align: left;
+    padding: 11px;
+    border: 1px solid color-mix(in srgb, var(--as-accent) 40%, var(--as-border));
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--as-accent) 10%, transparent);
+    color: var(--as-fg);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .as-results :global(.as-ask-row:hover) {
+    border-color: var(--as-accent);
+    background: color-mix(in srgb, var(--as-accent) 16%, transparent);
+  }
+
+  .as-results :global(.as-ask-row-label) {
+    flex: none;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--as-accent);
+  }
+
+  .as-results :global(.as-ask-row-q) {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .as-results :global(.as-ask-row .as-kbd) {
+    flex: none;
+  }
+
   .as-answer {
     max-height: min(56vh, 440px);
     overflow-y: auto;
@@ -536,12 +611,16 @@ const {
     private userSelected = false;
     private pressOnBackdrop = false;
     private answerRaf: number | undefined;
+    private suggestions: string[] = [];
+    private suggestionsFetched = false;
+    private defaultPlaceholder: string;
 
     constructor(dialog: HTMLDialogElement) {
       this.dialog = dialog;
       this.endpoint = dialog.dataset.endpoint || '/api/find';
       this.debounceMs = Number(dialog.dataset.debounce) || 300;
       this.input = dialog.querySelector('.as-input') as HTMLInputElement;
+      this.defaultPlaceholder = this.input.getAttribute('placeholder') || 'Search the docs…';
       this.results = dialog.querySelector('.as-results') as HTMLDivElement;
       this.answer = dialog.querySelector('.as-answer') as HTMLDivElement;
       this.answerBody = dialog.querySelector('.as-answer-body') as HTMLDivElement;
@@ -561,6 +640,7 @@ const {
       });
       this.modeToggleEl?.addEventListener('click', () => this.toggleMode());
       this.updateModeUI();
+      this.applyModePlaceholder();
       this.syncAskButton();
 
       this.input.addEventListener('input', () => this.onInput());
@@ -585,6 +665,38 @@ const {
       this.dialog.showModal();
       this.input.focus();
       this.input.select();
+      void this.maybeFetchSuggestions();
+      this.showInitial();
+    }
+
+    /**
+     * The suggested questions come from the knowledge graph and are served by the
+     * endpoint's GET. Fetch once per session, only when AI is on.
+     */
+    private async maybeFetchSuggestions() {
+      if (this.suggestionsFetched || !this.agentic) return;
+      this.suggestionsFetched = true;
+      try {
+        const res = await fetch(this.endpoint, { method: 'GET', headers: { accept: 'application/json' } });
+        if (!res.ok) return;
+        const data = (await res.json()) as { suggestions?: string[]; model?: string };
+        if (data.model) this.setModel(data.model);
+        this.suggestions = Array.isArray(data.suggestions) ? data.suggestions.filter(Boolean).slice(0, 4) : [];
+        // If the overlay is still open on an empty query, surface them now.
+        if (this.dialog.open && !this.input.value.trim()) this.showInitial();
+      } catch {
+        /* suggestions are a nicety; ignore fetch failures */
+      }
+    }
+
+    /** Empty-state view: suggested questions when asking, otherwise nothing. */
+    private showInitial() {
+      this.clearAnswer();
+      if (this.agentic && this.suggestions.length) {
+        this.renderSuggestions();
+      } else {
+        this.render([]);
+      }
     }
 
     private reset() {
@@ -617,10 +729,28 @@ const {
       this.syncAskButton();
       if (!q) {
         this.controller?.abort();
-        this.render([]);
+        this.showInitial();
+        return;
+      }
+      // Ask-first: once the query is more than one word (a space appears) and AI
+      // is on, stop keyword type-ahead and switch to ask mode — Enter asks.
+      if (this.agentic && /\s/.test(q)) {
+        this.enterAskMode(q);
         return;
       }
       this.timer = window.setTimeout(() => this.searchKeyword(q), this.debounceMs);
+    }
+
+    /** Multi-word query with AI on: present the ask affordance, don't call the model yet. */
+    private enterAskMode(query: string) {
+      window.clearTimeout(this.timer);
+      this.timer = undefined;
+      this.controller?.abort();
+      this.activeMode = null;
+      this.lastQuery = '';
+      this.clearAnswer();
+      this.renderAsk(query);
+      this.syncAskButton();
     }
 
     private async searchKeyword(query: string) {
@@ -909,6 +1039,66 @@ const {
       (this.results.firstElementChild as HTMLElement).textContent = message;
     }
 
+    /** Empty-state suggested questions. Clicking one fills the input and asks it. */
+    private renderSuggestions() {
+      this.results.innerHTML = '';
+      this.items = [];
+      this.active = -1;
+      this.userSelected = false;
+      this.searched.hidden = true;
+      this.searched.textContent = '';
+      this.searched.classList.remove('as-warning');
+
+      const label = document.createElement('div');
+      label.className = 'as-suggest-label';
+      label.textContent = 'Ask anything';
+      this.results.appendChild(label);
+
+      for (const question of this.suggestions) {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'as-suggest';
+        row.textContent = question;
+        row.addEventListener('click', () => {
+          this.input.value = question;
+          this.syncAskButton();
+          this.runAgentic(question);
+        });
+        this.results.appendChild(row);
+      }
+    }
+
+    /** Ask-mode affordance: a single primary row that runs the agentic loop. */
+    private renderAsk(query: string) {
+      this.results.innerHTML = '';
+      this.items = [];
+      this.active = -1;
+      this.userSelected = false;
+      this.searched.hidden = true;
+      this.searched.textContent = '';
+      this.searched.classList.remove('as-warning');
+
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'as-ask-row';
+      const label = document.createElement('span');
+      label.className = 'as-ask-row-label';
+      label.textContent = 'Ask AI';
+      const text = document.createElement('span');
+      text.className = 'as-ask-row-q';
+      text.textContent = query;
+      const kbd = document.createElement('kbd');
+      kbd.className = 'as-kbd';
+      kbd.textContent = '↵';
+      row.append(label, text, kbd);
+      row.addEventListener('click', () => this.runAgentic(query));
+      this.results.appendChild(row);
+    }
+
+    private applyModePlaceholder() {
+      this.input.placeholder = this.agentic ? 'Ask a question, or type to search…' : this.defaultPlaceholder;
+    }
+
     private readPref(): boolean {
       try {
         return localStorage.getItem('hev-find:mode') !== 'keyword';
@@ -956,9 +1146,15 @@ const {
       this.agentic = !this.agentic;
       this.writePref();
       this.updateModeUI();
+      this.applyModePlaceholder();
       this.syncAskButton();
+      if (this.agentic) void this.maybeFetchSuggestions();
       const q = this.input.value.trim();
-      if (q) {
+      if (!q) {
+        this.showInitial();
+      } else if (this.agentic && /\s/.test(q)) {
+        this.enterAskMode(q);
+      } else {
         this.lastQuery = '';
         this.searchKeyword(q);
       }
@@ -1043,6 +1239,13 @@ const {
     }
 
     private onKeydown(e: KeyboardEvent) {
+      // Tab accepts the first suggested question into the input (empty + asking).
+      if (e.key === 'Tab' && !e.shiftKey && this.agentic && !this.input.value.trim() && this.suggestions.length) {
+        e.preventDefault();
+        this.input.value = this.suggestions[0];
+        this.onInput();
+        return;
+      }
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         e.stopPropagation();

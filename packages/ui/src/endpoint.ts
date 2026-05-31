@@ -23,6 +23,10 @@ function resolveApiKey(locals: unknown): string | undefined {
   return fromRuntime ?? fromProcess ?? fromImportMeta;
 }
 
+// The overlay fetches the suggested questions on first open. They are baked into
+// the committed graph, so this is a cheap, keyless JSON response — no model call.
+export const GET: APIRoute = () => json({ suggestions: kg.suggestions ?? [], model: config.model });
+
 export const POST: APIRoute = async ({ request, locals }) => {
   let query: string | undefined;
   let mode: string | undefined;
