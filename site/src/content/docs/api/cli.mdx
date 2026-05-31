@@ -7,12 +7,16 @@ order: 3
 
 import Callout from "../../../components/docs/Callout.astro";
 
-`@hev/find` ships one binary, `hev-find-kg`, with two commands: `build` and
-`verify`. Run them from your site root.
+`@hev/find` ships one binary, `hev-find-kg`, with four commands. Two build the
+knowledge graph — `build` does it in one shot with an API key; `corpus` +
+`assemble` split the model step out so a **Claude Code skill** can do it with no
+key. `verify` is the CI gate. Run them from your site root.
 
 ```sh
-pnpm exec hev-find-kg build
-pnpm exec hev-find-kg verify
+pnpm exec hev-find-kg build      # one-shot build (needs ANTHROPIC_API_KEY)
+pnpm exec hev-find-kg corpus     # emit the sections to distil (keyless)
+pnpm exec hev-find-kg assemble   # assemble kg.json from a distillation (keyless)
+pnpm exec hev-find-kg verify     # verify anchors, coverage, fidelity
 ```
 
 A convenient pattern is to alias them in your site's `package.json`:
@@ -26,6 +30,50 @@ A convenient pattern is to alias them in your site's `package.json`:
 }
 ```
 
+## Building with Claude Code (recommended)
+
+The only part of the build that needs a model is the **distillation**: the
+`context`, `glossary`, per-section `summaries`, and `suggestions`. Everything
+else — chunking, fact extraction, the overview map, the content hash — is
+deterministic. The `corpus` and `assemble` commands expose exactly that seam so
+the model step can run inside your Claude Code subscription instead of against
+your `ANTHROPIC_API_KEY`.
+
+`@hev/find` bundles a skill for this. Point Claude Code at it and ask it to build
+the graph; it runs:
+
+```text
+hev-find-kg corpus       → .hev-find/kg-input.json   (sections + freshness flag)
+…reads that file, writes the distillation to .hev-find/kg-distill.json…
+hev-find-kg assemble     → .hev-find/kg.json          (deterministic assembly)
+```
+
+Because the skill runs in your subscription, building the graph costs **no API
+tokens on your own key**. The result is byte-for-byte the same shape as
+`build` produces, and the same hash gate applies — `corpus` reports
+`upToDate: true` and the skill stops when content hasn't changed.
+
+### `corpus`
+
+Chunks your content and writes the model input to `--out` (default
+`.hev-find/kg-input.json`): the content hash, an `upToDate` flag (true when the
+committed `kg.json` already matches), and one entry per section (`id`, `url`,
+`title`, `text`). Fully deterministic and keyless.
+
+### `assemble`
+
+Reads a distillation JSON from `--input` (default `.hev-find/kg-distill.json`) —
+`{ context, glossary, summaries, suggestions }` — re-chunks your content from
+disk, and writes `kg.json` with the deterministic parts (facts, overview, nodes,
+hash) computed in code. The model never authors those, so they can't drift.
+Keyless.
+
+```sh
+hev-find-kg corpus --out .hev-find/kg-input.json
+# …Claude writes .hev-find/kg-distill.json…
+hev-find-kg assemble --input .hev-find/kg-distill.json
+```
+
 ## `build`
 
 Builds the knowledge graph and writes it to `kgPath` (default
@@ -35,9 +83,10 @@ result.
 - If a committed `kg.json` already matches that hash, **it exits without calling
   the model** — no spend, no change.
 - Otherwise it calls the KG model (`--kg-model`, default `claude-opus-4-8`) once
-  to produce the `context`, `glossary`, and one summary per section, then
-  assembles the nodes (verbatim facts are extracted deterministically) and writes
-  the file stamped with the new hash and timestamp.
+  to produce the distillation (`context`, `glossary`, one summary per section,
+  and a few `suggestions`), then assembles the nodes (verbatim facts are
+  extracted deterministically) and writes the file stamped with the new hash and
+  timestamp.
 
 Requires `ANTHROPIC_API_KEY` in the environment **only when it actually
 regenerates**. Commit the resulting JSON.
@@ -83,17 +132,19 @@ still match what Astro renders.
 
 ## Flags
 
-Both commands accept the same content-shaping flags as the integration options;
+All commands accept the same content-shaping flags as the integration options;
 defaults match the integration.
 
 | Flag | Applies to | Default | Description |
 |---|---|---|---|
 | `--collection <name>` | both | `docs` | Collection to read. Repeat for multiple. |
 | `--base-path <path>` | both | `/docs/` | Slug → URL prefix. |
-| `--kg-path <path>` | both | `.hev-find/kg.json` | Path to the artifact (output for `build`, input for `verify`). |
-| `--content-glob <glob>` | both | derived | Source globs. Repeat for multiple. |
-| `--chunk-heading-depth <n>` | both | `3` | Deepest heading used as a chunk boundary. |
+| `--kg-path <path>` | all | `.hev-find/kg.json` | Path to the artifact (output for `build`/`assemble`, input for `verify`). |
+| `--content-glob <glob>` | all | derived | Source globs. Repeat for multiple. |
+| `--chunk-heading-depth <n>` | all | `3` | Deepest heading used as a chunk boundary. |
 | `--kg-model <model>` | `build` | `claude-opus-4-8` | Model used to build the graph. |
+| `--out <path>` | `corpus` | `.hev-find/kg-input.json` | Where to write the model-input payload. |
+| `--input <path>` | `assemble` | `.hev-find/kg-distill.json` | Distillation JSON to assemble into `kg.json`. |
 | `--build-command <cmd>` | `verify` | astro build | Override the build command run before verifying. |
 | `--skip-build` | `verify` | off | Verify against an existing `dist/` without rebuilding. |
 | `--strict` | `verify` | off | Treat coverage and fidelity warnings as failures. |

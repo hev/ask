@@ -44,25 +44,44 @@ source of truth for slugs means the anchors agree.
 
 ## Keyword search and the glossary
 
-As the reader types, the server runs a dependency-free **prefilter** over the
-chunks:
+When the reader types a single term, the server runs a dependency-free
+**prefilter** over the chunks:
 
 1. **Expand the query.** Each term picks up its glossary aliases (`k8s` →
    `kubernetes`) and the tokens of any matched glossary term. The expansion is
    additive and capped.
-2. **Score by token overlap** between the expanded query and each chunk.
+2. **Score by token overlap** between the expanded query and each chunk —
+   **widened by the knowledge graph**. When a `kg.json` with nodes is present, a
+   match also counts against that section's distilled `summary`, its `terms`,
+   and its verbatim `facts`, so the sections the graph considers central to a
+   term rank above an incidental mention buried in body prose.
 3. **Cap per document** (default 2 chunks per doc) so one long page can't
    monopolize the results, then take the top pool.
 4. **Excerpt** around the first matched term for the snippet.
 
 This is the instant path. It needs no API key and no embeddings — just the
-chunk index and the committed glossary.
+chunk index and the committed graph. With **no graph** it degrades to plain
+token overlap over the raw chunk text, so keyword search always works.
+
+## Asking is the default
+
+The overlay is **ask-first**. A single word is treated as a keyword lookup and
+answered instantly from the index. The moment the query grows past one word — the
+reader types a **space** — the overlay stops the keyword type-ahead and switches
+to **ask mode**: pressing Enter sends the question to the agentic loop. On open
+it also shows a few **suggested questions** (baked into the knowledge graph at
+build time, so they cost nothing at runtime) to make asking the obvious move.
+
+None of this is forced. A reader can flip the overlay to **keyword-only**
+(persisted in `localStorage`); then a space just searches for a phrase and the
+model is never called. See the [overlay reference](/docs/api/search-overlay) for
+the exact interaction.
 
 ## The agentic search loop
 
-When the reader presses Enter (and an API key is present), the query goes to a
-**bounded tool-use loop** that ends by **streaming a grounded answer**. It runs
-in two phases.
+When the reader asks (presses Enter on a multi-word query, or clicks a suggested
+question, with an API key present), the query goes to a **bounded tool-use loop**
+that ends by **streaming a grounded answer**. It runs in two phases.
 
 **Phase 1 — gather.** The model is given a **map** of every section (id +
 summary) up front, plus one tool:
@@ -100,9 +119,8 @@ loop model defaults to **Claude Haiku 4.5** and is configurable.
 
 ## The knowledge graph
 
-The knowledge graph (`kg.json`) is built **offline** by a strong model
-(**Claude Opus 4.8** by default) and committed to your repo as a reviewable
-artifact — the agent's view of your docs. It holds:
+The knowledge graph (`kg.json`) is built **offline** and committed to your repo
+as a reviewable artifact — the agent's view of your docs. It holds:
 
 - **`nodes`** — one distilled section per heading: a `summary` the agent reasons
   from, the verbatim `facts` (flags, code, identifiers) it quotes exactly, and a
@@ -110,14 +128,33 @@ artifact — the agent's view of your docs. It holds:
   `source-primary` so the agent reads their source text rather than a paraphrase.
 - **`overview`** — a deterministic map of every section, injected up front.
 - **`context`** and **`glossary`** — a compact orientation and the terms (with
-  aliases) that widen keyword queries before retrieval.
+  aliases) that widen keyword search.
+- **`suggestions`** — a handful of natural questions the docs can answer, shown
+  in the overlay on open.
 
-The build is **hash-gated**: it hashes the concatenated chunk text and, if a
-committed `kg.json` with nodes already matches that hash, exits without spending a
-model call. Only the summaries are model-authored; the node structure and facts
-are deterministic, so the JSON is reviewed in pull requests like any other
-change. See the [knowledge graph reference](/docs/api/knowledge-graph) for the
-file format.
+Only the `summary`, `glossary`, `context`, and `suggestions` are
+model-authored; the node structure, facts, overview, and content hash are
+**derived deterministically** in code. So the model only ever supplies the
+distillation — which is exactly the part worth doing in a **Claude Code skill**.
+
+### Two ways to build it
+
+The model step can run two ways, and both feed the same deterministic assembler:
+
+- **Claude Code skill (recommended).** A skill walks Claude through reading the
+  corpus and writing the distillation, then assembles `kg.json` locally. It runs
+  inside your existing Claude Code subscription — **no `ANTHROPIC_API_KEY`, no
+  per-build token spend on your own key**, and it fits the editor workflow most
+  authors are already in.
+- **`hev-find-kg build` (fallback).** One `ANTHROPIC_API_KEY` call to
+  **Claude Opus 4.8** (default) does the same distillation unattended — the right
+  choice for CI or anyone not using Claude Code.
+
+Either way the build is **hash-gated**: it hashes the concatenated chunk text
+and, if a committed `kg.json` with nodes already matches that hash, it does no
+model work at all. The JSON is reviewed in pull requests like any other change.
+See the [knowledge graph reference](/docs/api/knowledge-graph) and the
+[CLI reference](/docs/api/cli) for the file format and the build commands.
 
 ## Degradation, by design
 
@@ -127,7 +164,8 @@ hev find is built to keep working as pieces drop away:
 - **No key at build** → the committed `kg.json` is kept; the build warns but
   never fails for lack of a key.
 - **No `kg.json`, or an older node-less one** → the agentic loop falls back to
-  keyword-style retrieval; it still answers, just without the distilled map.
+  keyword-style retrieval; keyword ranking falls back to raw token overlap; and
+  the overlay simply shows no suggested questions. Everything still works.
 - **Stale `kg.json`** → the runtime logs a one-line warning when the live index
   hash differs from the graph's hash, but still serves.
 

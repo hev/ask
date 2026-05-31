@@ -27,7 +27,7 @@ add an API key.
   { title: "Register the integration", body: "Add hevFind() to astro.config.mjs and point it at your collection." },
   { title: "Add an adapter", body: "Install a server/hybrid adapter so the /api/find route can render on demand." },
   { title: "Drop in the overlay", body: "Render SearchOverlay.astro once in your layout and add an opener button." },
-  { title: "Build the knowledge graph", body: "Run hev-find-kg build and commit the JSON artifact." },
+  { title: "Build the knowledge graph", body: "Use the Claude Code skill (or hev-find-kg build) and commit the JSON artifact." },
 ]} />
 
 ### 1. Install
@@ -107,24 +107,50 @@ At this point keyword search works. Run `astro dev`, press `⌘K`, and type.
 ### 5. Build the knowledge graph
 
 The knowledge graph is an offline-built JSON file committed to your repo. It
-gives the agentic loop domain context and a glossary (so `k8s` finds
-`kubernetes`). Build it once, then whenever content changes:
+gives the agentic loop domain context, ranks keyword results, supplies the
+glossary (so `k8s` finds `kubernetes`), and holds the questions the overlay
+suggests. Only the distillation is model-authored; everything else is derived in
+code. There are two ways to produce that distillation:
+
+**Recommended — the Claude Code skill.** If you work in
+[Claude Code](https://claude.com/claude-code), install the bundled skill and ask
+for it. It builds the graph inside your subscription — **no API key, no token
+spend on your own key**:
+
+```text
+You: build the hev find knowledge graph
+
+Claude runs:
+  hev-find-kg corpus            # emits the sections to distil
+  …writes context/glossary/summaries/suggestions…
+  hev-find-kg assemble          # writes .hev-find/kg.json (deterministically)
+```
+
+**Fallback — the CLI.** For CI or outside Claude Code, one API call does the same
+distillation:
 
 ```sh
 export ANTHROPIC_API_KEY=sk-ant-...
 pnpm exec hev-find-kg build      # writes .hev-find/kg.json
+```
+
+Then verify and commit, however you built it:
+
+```sh
 pnpm exec hev-find-kg verify     # builds the site, checks every anchor resolves
 git add .hev-find/kg.json
 ```
 
-`build` hashes your content and **skips the model call when nothing changed**,
-so it's cheap to run in CI. The integration also runs it automatically during
-`astro build` when a key is present.
+Both paths are **hash-gated** — they do no model work when content is unchanged,
+so they're cheap to re-run. The integration also runs `build` automatically
+during `astro build` when a key is present. See the
+[CLI reference](/docs/api/cli) for every command.
 
 <Callout label="no key, no problem">
-Skip step 5 entirely and hev find still works in keyword mode. Without a key the
-agentic path gracefully falls back to keyword results, and the build uses an
-empty knowledge graph. You can add the key later.
+Skip step 5 entirely and hev find still works in keyword mode. Without a graph
+the agentic path falls back to keyword results, keyword ranking falls back to
+raw token overlap, and the overlay simply shows no suggestions. You can build
+the graph later.
 </Callout>
 
 ## Turn on agentic search
@@ -136,10 +162,11 @@ without one, Enter returns keyword results.
 
 ## Verify it works
 
-- **Keyword:** type a word from a heading; the top result should deep-link to
-  that section (`/docs/page#heading`).
-- **Agentic:** press Enter on a question; the footer shows the sub-queries the
-  model ran, and a grounded answer streams in with inline deep links.
+- **Keyword:** type a single word from a heading; the top result should
+  deep-link to that section (`/docs/page#heading`).
+- **Agentic:** type a multi-word question (or click a suggested one) and press
+  Enter; the footer shows the sub-queries the model ran, and a grounded answer
+  streams in with inline deep links.
 - **Anchors:** `hev-find-kg verify` exits non-zero if any chunk anchor doesn't
   exist in the built HTML — wire it into CI.
 

@@ -33,6 +33,10 @@ back to the real pages. Every node carries a `url#anchor` to its source.
     { "term": "knowledge graph", "aliases": ["kg"], "definition": "An offline-built artifact of the docs." }
   ],
   "overview": "## Overview\n- Kubernetes autoscaling — `concepts#kubernetes-autoscaling`\n…",
+  "suggestions": [
+    "How does the knowledge graph stay fresh?",
+    "What does keyword search fall back to without a graph?"
+  ],
   "nodes": [
     {
       "id": "concepts#kubernetes-autoscaling",
@@ -62,6 +66,7 @@ back to the real pages. Every node carries a `url#anchor` to its source.
 | `context` | `string` | Compact orientation; degradation fallback when there are no nodes. |
 | `glossary` | `GlossaryEntry[]` | Terms with aliases and definitions; widens keyword search. |
 | `overview` | `string` | A deterministic grouped map of every section, injected into the agent's prompt. |
+| `suggestions` | `string[]` | Model-authored example questions the overlay shows on open. The endpoint serves them; absent ⇒ the overlay shows none. |
 | `nodes` | `KnowledgeNode[]` | One distilled section per doc heading — the shadow site. |
 | `edges` | `KnowledgeEdge[]` | Reserved for a future node-to-node graph; ships empty. |
 
@@ -83,8 +88,13 @@ back to the real pages. Every node carries a `url#anchor` to its source.
   summaries, quoting `facts` verbatim for exact strings.
 - **`glossary`** drives keyword **query expansion** — each query term picks up
   its aliases before retrieval, so `k8s` finds `kubernetes` sections.
+- **`nodes`** also **rank keyword results**: a query term that hits a section's
+  `summary`, `terms`, or `facts` lifts that section above an incidental body
+  mention. Without nodes, ranking falls back to raw token overlap.
 - **`terms`** back a render-time check: a cited link degrades to plain text if
   the surrounding answer shares none of the cited node's terms.
+- **`suggestions`** are returned by the endpoint's `GET` and rendered as the
+  overlay's suggested questions on open.
 - **`contentHash`** is the freshness gate. `build` recomputes it; if a committed
   graph with nodes already matches, the build skips the model call.
 
@@ -97,15 +107,18 @@ works. Nothing hard-fails.
 
 <Callout label="review it like code">
 Because the graph is committed JSON, it shows up in pull requests. Its structure
-— nodes, sources, facts — is deterministic and reviewable; only the prose
-summaries are model-authored. That reviewability is the reason it's a file and
-not a runtime computation.
+— nodes, sources, facts, overview, hash — is deterministic and reviewable; only
+the distillation (`summary`, `glossary`, `context`, `suggestions`) is
+model-authored. That reviewability is the reason it's a file and not a runtime
+computation — and the reason the model step can move into a
+[Claude Code skill](/docs/api/cli#building-with-claude-code-recommended).
 </Callout>
 
 ## Regenerating
 
-Run `hev-find-kg build` after content changes and commit the result. The hash
-gate makes this safe to run on every build — it only spends a model call when the
-content actually changed. The integration also runs it during `astro build` when
-an API key is present. Run [`hev-find-kg verify`](/docs/api/cli) to gate anchors,
-coverage, and literal fidelity.
+Rebuild after content changes and commit the result. The hash gate makes this
+safe to run on every build — it only spends model work when the content actually
+changed. Build it with the bundled **Claude Code skill** (no API key) or
+`hev-find-kg build` (one API call); the integration also runs `build` during
+`astro build` when a key is present. Run [`hev-find-kg verify`](/docs/api/cli) to
+gate anchors, coverage, and literal fidelity.

@@ -52,29 +52,44 @@ Two ways, both built in:
 
 ## Keyboard model
 
-The interaction is the core of hev find's two-path design:
+The overlay is **ask-first**: the number of words you've typed decides the path.
 
-- **Type** → debounced keyword search runs; the first result is auto-active.
-- **Enter** → if you haven't moved the selection, runs the **agentic loop**
-  ("ask AI"). If you *have* moved the selection with `↑`/`↓` or hovered a
-  result, Enter **opens** that result instead.
-- **`↑` / `↓`** → move the active result.
-- **Esc** → close.
+- **Open** (with AI on) → a few **suggested questions** appear. Click one — or
+  press `Tab` to drop the first into the input — to ask it.
+- **Type one word** → debounced keyword search runs; the first result is
+  auto-active. This is the instant, keyless lookup path.
+- **Type a space** (a second word) → keyword type-ahead stops and the overlay
+  switches to **ask mode**: the results area shows an *Ask AI* affordance and
+  Enter sends the question to the agentic loop.
+- **Enter** → in ask mode, runs the **agentic loop**. In keyword mode, opens the
+  active result. (If you moved the selection with `↑`/`↓` on a single-word query,
+  Enter opens that result instead of asking.)
+- **`↑` / `↓`** → move the active keyword result. **Esc** → close.
 
-So *type → Enter* is AI search, and *type → ↓↓ → Enter* opens a keyword hit. The
-footer shows the hint `⏎ ask AI · ↑↓ open`.
+So *type a question → Enter* asks AI, and *type one word → Enter* (or *↓↓ → Enter*)
+opens a keyword hit. The footer hint reflects the current mode.
 
 <Callout label="when there's no API key">
-If the server has no ANTHROPIC_API_KEY, pressing Enter returns keyword results
-and the response carries a warning the overlay can surface. Search still works;
-it just doesn't escalate to the model.
+If the server has no ANTHROPIC_API_KEY, asking returns keyword results and the
+response carries a warning the overlay surfaces. Search still works; it just
+doesn't escalate to the model.
 </Callout>
+
+## Suggested questions
+
+When AI is on, the overlay fetches a short list of suggested questions from the
+endpoint (`GET /api/find`) the first time it opens and shows them in the empty
+state. They come from the knowledge graph's `suggestions`, baked in at build
+time, so there's **no model call to render them** — and if the graph has none,
+the overlay simply shows nothing extra. Clicking a suggestion fills the input and
+asks it immediately.
 
 ## The mode toggle
 
 The overlay persists an "AI on Enter" preference in `localStorage` under the key
-`hev-find:mode` (`agentic` or `keyword`). Readers who never want the model call
-can flip it off; the choice survives reloads.
+`hev-find:mode` (`agentic` or `keyword`). Readers who flip it to keyword-only
+never trigger a model call: a space just searches for a phrase, and no suggested
+questions are shown. The choice survives reloads.
 
 ## Keyword results and deep links
 
