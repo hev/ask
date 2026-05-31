@@ -16,7 +16,7 @@ const facts = [
 	<main>
 		<section class="hero">
 			<p class="kicker">// search for astro docs sites</p>
-			<h1>Search your docs.<br />Keyword fast, AI deep.</h1>
+			<h1>The AI search cheat code<br />for your docs.</h1>
 			<p class="lede">
 				A <span class="mono">⌘K</span> search overlay for Astro. Instant keyword
 				search as the reader types, a Claude search loop on Enter — every result
@@ -28,6 +28,16 @@ const facts = [
 					press <kbd>⌘K</kbd> to search this site
 				</button>
 			</div>
+
+			<figure class="hero-art">
+				<img
+					src="/kg.png"
+					width="1640"
+					height="916"
+					alt="A knowledge graph rendered as connected terminal-card nodes on warm paper; an orange ⌘K beam threads a single path through search, integrations, authentication, and endpoints to an opened section anchored at #api/endpoints/create."
+					loading="eager"
+				/>
+			</figure>
 		</section>
 
 		<section class="install" aria-label="The whole integration">
@@ -171,6 +181,19 @@ integrations: [hevFind(&#123; collections: ["docs"] &#125;)]</code></pre>
 		border: 1px solid var(--rule-strong);
 		border-radius: 3px;
 		color: var(--ink-soft);
+	}
+
+	.hero-art {
+		margin-top: 2.5rem;
+	}
+
+	.hero-art img {
+		display: block;
+		width: 100%;
+		height: auto;
+		border: 1px solid var(--rule-strong);
+		border-radius: 2px;
+		background: var(--paper-warm);
 	}
 
 	.install {

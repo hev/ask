@@ -9,7 +9,8 @@ that runs when the reader presses `Enter`.
 - **Anchor results** — docs are chunked by headings, so results can link to
   `/docs/page#section` instead of only the page root.
 - **Agentic Enter** — Claude decides focused sub-queries, uses the keyword
-  search tool, and presents ranked section results with one-line snippets.
+  search tool, then streams a grounded answer (SSE) with inline deep links to
+  the sections it drew from.
 - **Knowledge graph** — an optional committed `.hev-find/kg.json` adds domain
   context and glossary aliases for better retrieval.
 
@@ -18,8 +19,14 @@ that runs when the reader presses `Enter`.
 ```
 .
 ├─ packages/ui      # the published package: @hev/find
-└─ playground       # a local Astro docs site that mirrors layer/site for dev
+├─ playground       # a minimal Astro docs site for fast local dev
+└─ site             # the docs + showcase site (find.hev.dev), which dogfoods @hev/find
 ```
+
+The `site/` directory is the public documentation site. It is written
+docs-first for **Astro authors evaluating search**, and it *searches itself*
+with `@hev/find` — the docs are the product's own test corpus. Press `⌘K` on the
+running site to see it work on real content.
 
 ## Develop
 
@@ -30,6 +37,14 @@ pnpm dev
 ```
 
 Open the playground and press `⌘K`.
+
+To work on the documentation/showcase site instead:
+
+```sh
+pnpm --filter hev-find-site dev      # runs on :4334
+pnpm --filter hev-find-site build    # static pages + the /api/find function
+pnpm --filter hev-find-site check    # astro check (types)
+```
 
 Useful checks:
 

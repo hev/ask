@@ -9,13 +9,14 @@ import {
 
 const groups = nodesByGroup();
 const nodeCount = knowledgeGraph.nodes?.length ?? 0;
+const glossaryCount = knowledgeGraph.glossary?.length ?? 0;
 const shortHash = (knowledgeGraph.contentHash ?? "").slice(0, 12) || "—";
 const rawJson = getKnowledgeGraphRawJson();
 ---
 
 <Base
 	title="hev find - what the agent sees"
-	description="The rendered knowledge graph for this site — the distilled summaries, verbatim facts, and glossary the agentic search loop reasons over. This is what the agent sees."
+	description="The rendered knowledge graph for this site — the map the agentic loop holds in context, and the facts it reveals when it opens a section. This is what the agent sees."
 	current="docs"
 >
 	<main class="kg">
@@ -24,39 +25,72 @@ const rawJson = getKnowledgeGraphRawJson();
 			<h1>Knowledge graph</h1>
 			<p class="lede">
 				When you press <kbd>⌘K</kbd> and ask a question, the agent doesn't read
-				these pages — it reads this. An offline build distills every section into
-				a summary it reasons from and a set of verbatim facts it must quote
-				exactly, committed as <code>.hev-find/kg.json</code>. This is that file,
-				rendered.
+				these pages — it reads this. It's committed as
+				<code>.hev-find/kg.json</code>, rendered here exactly the way the loop
+				discloses it: a map it holds in context, and details it opens on demand.
 			</p>
 			<dl class="kg-meta">
 				<div><dt>version</dt><dd>{knowledgeGraph.version}</dd></div>
 				<div><dt>sections</dt><dd>{nodeCount}</dd></div>
-				<div><dt>glossary</dt><dd>{knowledgeGraph.glossary?.length ?? 0}</dd></div>
+				<div><dt>glossary</dt><dd>{glossaryCount}</dd></div>
 				<div><dt>generated</dt><dd title={formatGeneratedAt()}>{formatGeneratedAt().slice(0, 10) || "—"}</dd></div>
 				<div><dt>content hash</dt><dd title={knowledgeGraph.contentHash}>{shortHash}</dd></div>
 			</dl>
 		</header>
 
+		<section class="disclosure" aria-label="How the agent reads the graph">
+			<ol>
+				<li>
+					<span class="lvl">level 1 · the map</span>
+					<p>
+						Always in the prompt: every section's id, heading, and one-line
+						summary, plus the glossary's aliases for widening a query. This is the
+						collapsed row below.
+					</p>
+				</li>
+				<li>
+					<span class="lvl">level 2 · open_section()</span>
+					<p>
+						On demand, the agent opens a section to read its verbatim
+						<strong>facts</strong> — and, for reference sections, the
+						<strong>source text</strong>. That's what expanding a row reveals.
+					</p>
+				</li>
+			</ol>
+			<p class="disclosure-note">Expand a row to make the same call the agent does.</p>
+		</section>
+
 		<section class="kg-block">
 			<h2>Orientation</h2>
+			<p class="block-note">The compact product overview the build distills — context for the keyword/expansion path.</p>
 			<p class="prose">{knowledgeGraph.context}</p>
 		</section>
 
 		<section class="kg-block">
-			<h2>Glossary <span class="count">{knowledgeGraph.glossary?.length ?? 0}</span></h2>
-			<p class="block-note">Terms and aliases that widen a reader's query before retrieval — so <code>k8s</code> finds <code>kubernetes</code>.</p>
-			<ul class="glossary">
+			<h2>Glossary <span class="count">{glossaryCount} terms</span></h2>
+			<p class="block-note">Aliases that widen a reader's query before retrieval — so <code>k8s</code> finds <code>kubernetes</code>. List the terms; open one for its aliases and definition.</p>
+			<ul class="disclose-list">
 				{
 					(knowledgeGraph.glossary ?? []).map((g) => (
 						<li>
-							<div class="g-term">
-								<strong>{g.term}</strong>
-								{g.aliases && g.aliases.length > 0 && (
-									<span class="g-aliases">{g.aliases.join(" · ")}</span>
-								)}
-							</div>
-							<span class="g-def">{g.definition}</span>
+							<details>
+								<summary>
+									<span class="row-title">{g.term}</span>
+									{g.aliases && g.aliases.length > 0 && (
+										<span class="row-meta">{g.aliases.length} alias{g.aliases.length === 1 ? "" : "es"}</span>
+									)}
+								</summary>
+								<div class="detail">
+									{g.aliases && g.aliases.length > 0 && (
+										<div class="chips">
+											{g.aliases.map((a) => (
+												<code class="chip alias">{a}</code>
+											))}
+										</div>
+									)}
+									<p class="def">{g.definition}</p>
+								</div>
+							</details>
 						</li>
 					))
 				}
@@ -64,32 +98,47 @@ const rawJson = getKnowledgeGraphRawJson();
 		</section>
 
 		<section class="kg-block">
-			<h2>Sections <span class="count">{nodeCount}</span></h2>
-			<p class="block-note">One distilled node per heading. The <em>summary</em> is what the agent reasons from; <em>facts</em> are byte-verbatim strings it quotes exactly.</p>
+			<h2>Sections <span class="count">{nodeCount} nodes</span></h2>
+			<p class="block-note">One node per heading — the map the agent navigates. Collapsed shows the summary it always sees; open a section to reveal its facts, just like the loop's <code>open_section</code>.</p>
 			{
 				groups.map((grp) => (
 					<div class="kg-group">
 						<h3>{grp.group}</h3>
-						<ul class="nodes">
+						<ul class="disclose-list">
 							{grp.nodes.map((node) => (
-								<li class="node">
-									<div class="node-head">
-										<a href={node.url} class="node-title">
-											{node.heading ?? node.title}
-										</a>
-										<span class={`mode mode-${node.mode}`}>{node.mode}</span>
-									</div>
-									<p class="node-summary">{node.summary}</p>
-									{node.facts.length > 0 && (
-										<div class="facts">
-											{node.facts.slice(0, 12).map((f) => (
-												<code class={`fact fact-${f.kind}`}>{f.literal}</code>
-											))}
-											{node.facts.length > 12 && (
-												<span class="fact-more">+{node.facts.length - 12} more</span>
+								<li>
+									<details>
+										<summary>
+											<div class="row-main">
+												<span class="row-title">{node.heading ?? node.title}</span>
+												<span class={`mode mode-${node.mode}`}>
+													{node.mode === "source-primary" ? "reference" : "summary"}
+												</span>
+											</div>
+											<span class="row-summary">{node.summary}</span>
+										</summary>
+										<div class="detail">
+											{node.facts.length > 0 ? (
+												<>
+													<span class="detail-label">facts · quoted verbatim</span>
+													<div class="chips">
+														{node.facts.map((f) => (
+															<code class={`chip fact-${f.kind}`}>{f.literal}</code>
+														))}
+													</div>
+												</>
+											) : (
+												<span class="detail-label muted">no verbatim facts in this section</span>
 											)}
+											{node.mode === "source-primary" && (
+												<p class="src-note">
+													Reference section — on open, the agent also receives this
+													section's source text verbatim.
+												</p>
+											)}
+											<a class="open-link" href={node.url}>open section ↗</a>
 										</div>
-									)}
+									</details>
 								</li>
 							))}
 						</ul>
@@ -108,9 +157,9 @@ const rawJson = getKnowledgeGraphRawJson();
 <style>
 	.kg {
 		width: var(--page);
-		max-width: 880px;
+		max-width: 820px;
 		margin: 0 auto;
-		padding: 3rem 0 6rem;
+		padding: 3rem 0 2rem;
 	}
 
 	.kicker {
@@ -134,7 +183,7 @@ const rawJson = getKnowledgeGraphRawJson();
 		color: var(--ink-soft);
 		font-size: 1.0625rem;
 		line-height: 1.6;
-		max-width: 42em;
+		max-width: 44em;
 	}
 
 	.lede kbd {
@@ -181,6 +230,48 @@ const rawJson = getKnowledgeGraphRawJson();
 		white-space: nowrap;
 	}
 
+	/* --- disclosure model explainer --- */
+	.disclosure {
+		margin-top: 2.5rem;
+		padding: 1.5rem 1.6rem 1.25rem;
+		border: 1px solid var(--rule-strong);
+		border-left: 2px solid var(--signal);
+		border-radius: 2px;
+		background: var(--paper-warm);
+	}
+
+	.disclosure ol {
+		list-style: none;
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 1.5rem;
+	}
+
+	.lvl {
+		display: block;
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.7rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--signal);
+		margin-bottom: 0.4rem;
+	}
+
+	.disclosure p {
+		color: var(--ink-soft);
+		font-size: 0.9375rem;
+		line-height: 1.55;
+	}
+
+	.disclosure-note {
+		margin-top: 1.25rem;
+		padding-top: 0.9rem;
+		border-top: 1px dashed var(--rule-strong);
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.8125rem;
+		color: var(--muted);
+	}
+
 	.kg-block {
 		margin-top: 3.5rem;
 	}
@@ -210,7 +301,8 @@ const rawJson = getKnowledgeGraphRawJson();
 		color: var(--muted);
 		font-size: 0.9375rem;
 		margin-bottom: 1.5rem;
-		max-width: 46em;
+		max-width: 48em;
+		line-height: 1.55;
 	}
 
 	.prose {
@@ -220,95 +312,88 @@ const rawJson = getKnowledgeGraphRawJson();
 		white-space: pre-wrap;
 	}
 
-	.glossary {
+	/* --- shared progressive-disclosure list --- */
+	.disclose-list {
 		list-style: none;
-		display: grid;
-		gap: 0;
 		border: 1px solid var(--rule);
 	}
 
-	.glossary li {
-		display: grid;
-		grid-template-columns: minmax(150px, 0.4fr) 1fr;
-		gap: 1.5rem;
-		padding: 0.9rem 1.1rem;
+	.disclose-list > li {
+		list-style: none;
 		border-bottom: 1px solid var(--rule);
 		background: var(--paper-warm);
-		align-items: baseline;
 	}
 
-	.glossary li:last-child {
+	.disclose-list > li::marker {
+		content: "";
+	}
+
+	.disclose-list > li:last-child {
 		border-bottom: 0;
 	}
 
-	.g-term strong {
-		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
-		color: var(--ink);
-		font-size: 0.9375rem;
-	}
-
-	.g-aliases {
+	.disclose-list summary {
 		display: block;
-		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
-		font-size: 0.75rem;
-		color: var(--signal);
-		margin-top: 0.2rem;
-	}
-
-	.g-def {
-		color: var(--ink-soft);
-		font-size: 0.9375rem;
-		line-height: 1.5;
-	}
-
-	.kg-group {
-		margin-top: 2rem;
-	}
-
-	.kg-group h3 {
-		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
-		font-size: 0.75rem;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: var(--muted);
-		margin-bottom: 0.75rem;
-	}
-
-	.nodes {
+		cursor: pointer;
+		padding: 0.85rem 1.1rem 0.85rem 2rem;
+		position: relative;
 		list-style: none;
-		display: flex;
-		flex-direction: column;
-		gap: 0;
-		border: 1px solid var(--rule);
+		transition: color 0.12s ease;
 	}
 
-	.node {
-		padding: 1.1rem 1.25rem;
-		border-bottom: 1px solid var(--rule);
+	.disclose-list summary::-webkit-details-marker {
+		display: none;
 	}
 
-	.node:last-child {
-		border-bottom: 0;
+	.disclose-list summary::marker {
+		content: "";
 	}
 
-	.node-head {
+	.disclose-list summary::before {
+		content: "›";
+		position: absolute;
+		left: 1rem;
+		top: 0.8rem;
+		color: var(--signal);
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		transition: transform 0.15s ease;
+	}
+
+	.disclose-list details[open] > summary::before {
+		transform: rotate(90deg);
+	}
+
+	.disclose-list summary:hover .row-title {
+		color: var(--signal);
+	}
+
+	.row-main {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		gap: 1rem;
-		margin-bottom: 0.4rem;
 	}
 
-	.node-title {
+	.row-title {
 		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
 		font-size: 0.9375rem;
 		font-weight: 600;
 		color: var(--ink);
-		text-decoration: none;
 	}
 
-	.node-title:hover {
-		color: var(--signal);
+	.row-meta {
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.75rem;
+		color: var(--muted);
+		margin-left: 0.6rem;
+	}
+
+	.row-summary {
+		display: block;
+		margin-top: 0.3rem;
+		color: var(--ink-soft);
+		font-size: 0.9375rem;
+		line-height: 1.5;
 	}
 
 	.mode {
@@ -332,20 +417,34 @@ const rawJson = getKnowledgeGraphRawJson();
 		border: 1px solid var(--signal);
 	}
 
-	.node-summary {
-		color: var(--ink-soft);
-		font-size: 0.9375rem;
-		line-height: 1.55;
+	.detail {
+		padding: 0.25rem 1.1rem 1.1rem 2rem;
+		border-top: 1px dashed var(--rule-strong);
+		margin-top: 0.1rem;
 	}
 
-	.facts {
+	.detail-label {
+		display: block;
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.7rem;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--muted);
+		margin: 0.75rem 0 0.6rem;
+	}
+
+	.detail-label.muted {
+		color: var(--muted);
+		font-style: normal;
+	}
+
+	.chips {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.4rem;
-		margin-top: 0.7rem;
 	}
 
-	.fact {
+	.chip {
 		font-size: 0.75rem;
 		padding: 0.15rem 0.4rem;
 		background: var(--paper);
@@ -358,16 +457,54 @@ const rawJson = getKnowledgeGraphRawJson();
 		white-space: nowrap;
 	}
 
-	.fact-flag {
+	.chip.alias {
 		color: var(--signal-dark);
 		border-color: color-mix(in srgb, var(--signal) 35%, var(--rule-strong));
 	}
 
-	.fact-more {
+	.chip.fact-flag {
+		color: var(--signal-dark);
+		border-color: color-mix(in srgb, var(--signal) 35%, var(--rule-strong));
+	}
+
+	.def {
+		margin-top: 0.75rem;
+		color: var(--ink-soft);
+		font-size: 0.9375rem;
+		line-height: 1.55;
+	}
+
+	.src-note {
+		margin-top: 0.85rem;
+		color: var(--muted);
+		font-size: 0.875rem;
+		line-height: 1.5;
+	}
+
+	.open-link {
+		display: inline-block;
+		margin-top: 0.85rem;
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.8125rem;
+		color: var(--signal);
+		text-decoration: none;
+	}
+
+	.open-link:hover {
+		text-decoration: underline;
+	}
+
+	.kg-group {
+		margin-top: 2rem;
+	}
+
+	.kg-group h3 {
 		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
 		font-size: 0.75rem;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
 		color: var(--muted);
-		align-self: center;
+		margin-bottom: 0.75rem;
 	}
 
 	.kg-raw {
@@ -377,7 +514,7 @@ const rawJson = getKnowledgeGraphRawJson();
 		background: var(--paper-warm);
 	}
 
-	.kg-raw summary {
+	.kg-raw > summary {
 		cursor: pointer;
 		padding: 0.85rem 1.1rem;
 		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
@@ -385,7 +522,7 @@ const rawJson = getKnowledgeGraphRawJson();
 		color: var(--ink-soft);
 	}
 
-	.kg-raw summary:hover {
+	.kg-raw > summary:hover {
 		color: var(--signal);
 	}
 
@@ -414,9 +551,8 @@ const rawJson = getKnowledgeGraphRawJson();
 			grid-template-columns: 1fr 1fr;
 		}
 
-		.glossary li {
+		.disclosure ol {
 			grid-template-columns: 1fr;
-			gap: 0.3rem;
 		}
 
 		h1 {
