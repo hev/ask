@@ -20,7 +20,7 @@ site searches itself with `@hev/ask`; press `⌘K` to see it work.
 
 ```sh
 pnpm install
-cp playground/.env.example playground/.env   # add ANTHROPIC_API_KEY for AI search/KG builds
+cp playground/.env.example playground/.env   # add ANTHROPIC_API_KEY for AI search/digest builds
 pnpm dev
 ```
 
@@ -38,14 +38,14 @@ Useful checks:
 pnpm test
 pnpm typecheck
 pnpm build
-pnpm kg:build
-pnpm kg:verify
+pnpm digest:build
+pnpm digest:verify
 ```
 
 ## Publishing
 
 The package is structured for npm distribution as `@hev/ask`, with `src`
-exports for Astro/Vite consumers plus `ask` and deprecated `hev-ask-kg` bins for
+exports for Astro/Vite consumers plus the `ask` bin for
 CLI use from `node_modules`. Until it's published, consume it from the package
 subdirectory on GitHub:
 
@@ -57,7 +57,7 @@ Before publishing:
 
 1. Set the intended semver in `packages/ui/package.json`.
 2. Run `pnpm build:npm-binaries` to populate the optional platform packages.
-3. Run `pnpm test`, `pnpm typecheck`, `pnpm build`, and `pnpm kg:verify`.
+3. Run `pnpm test`, `pnpm typecheck`, `pnpm build`, and `pnpm digest:verify`.
 4. Dry-run the package with `pnpm --filter @hev/ask pack --dry-run`.
 5. Publish from `packages/ui` with `pnpm publish --access public`.
 6. Move consumers from the Git dependency to `@hev/ask@<version>`.

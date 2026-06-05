@@ -41,7 +41,7 @@ export interface HevAskOptions {
    * Model used by the offline digest builder.
    * @default 'claude-opus-4-8'
    */
-  kgModel?: string;
+  digestModel?: string;
 
   /**
    * Maximum search tool rounds the model can run before it must present results.
@@ -72,20 +72,20 @@ export interface HevAskOptions {
    * Path to the committed ask digest artifact, relative to the site root.
    * @default '.hev-ask/digest.json'
    */
-  kgPath?: string;
+  digestPath?: string;
 
   /**
-   * Content globs used by the offline KG builder.
+   * Content globs used by the offline digest builder.
    * Defaults to Markdown/MDX files under each configured collection directory.
    */
-  kgContentGlobs?: string[];
+  digestContentGlobs?: string[];
 }
 
 /** The shape the integration serializes into `virtual:hev-ask/config`. */
 export interface ResolvedConfig {
   collections: string[] | null;
   model: string;
-  kgModel: string;
+  digestModel: string;
   endpoint: string;
   basePath: string;
   maxResults: number;
@@ -94,6 +94,6 @@ export interface ResolvedConfig {
   chunkHeadingDepth: number;
   candidatePerSearch: number;
   perDocCap: number;
-  kgPath: string;
-  kgContentGlobs?: string[];
+  digestPath: string;
+  digestContentGlobs?: string[];
 }

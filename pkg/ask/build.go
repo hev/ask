@@ -14,12 +14,12 @@ import (
 )
 
 type BuildOptions struct {
-	SiteRoot          string
-	Collections       []string
-	BasePath          string
-	KGPath            string
-	KGContentGlobs    []string
-	ChunkHeadingDepth int
+	SiteRoot           string
+	Collections        []string
+	BasePath           string
+	DigestPath         string
+	DigestContentGlobs []string
+	ChunkHeadingDepth  int
 }
 
 type CorpusBuild struct {
@@ -28,9 +28,9 @@ type CorpusBuild struct {
 	ContentHash string
 }
 
-type KnowledgeGraphInput struct {
+type DigestInput struct {
 	ContentHash string          `json:"contentHash"`
-	KGPath      string          `json:"kgPath"`
+	DigestPath  string          `json:"digestPath"`
 	UpToDate    bool            `json:"upToDate"`
 	Sections    []CorpusSection `json:"sections"`
 }
@@ -63,7 +63,7 @@ type BuildResult struct {
 
 func BuildCorpus(options BuildOptions) (CorpusBuild, error) {
 	normalizeBuildOptions(&options)
-	files, err := resolveContentFiles(options.SiteRoot, options.Collections, options.KGContentGlobs)
+	files, err := resolveContentFiles(options.SiteRoot, options.Collections, options.DigestContentGlobs)
 	if err != nil {
 		return CorpusBuild{}, err
 	}
@@ -111,11 +111,11 @@ func WriteCorpusInput(options BuildOptions, outPath string) (string, bool, int, 
 	if err != nil {
 		return "", false, 0, err
 	}
-	committed, err := LoadGraph(resolveSitePath(options.SiteRoot, options.KGPath))
+	committed, err := LoadDigest(resolveSitePath(options.SiteRoot, options.DigestPath))
 	upToDate := err == nil && committed.Version == 2 && committed.ContentHash == corpus.ContentHash && len(committed.Nodes) > 0
-	payload := KnowledgeGraphInput{
+	payload := DigestInput{
 		ContentHash: corpus.ContentHash,
-		KGPath:      options.KGPath,
+		DigestPath:  options.DigestPath,
 		UpToDate:    upToDate,
 		Sections:    CorpusSections(corpus),
 	}
@@ -149,20 +149,20 @@ func AssembleFromDistillation(options BuildOptions, inputPath string) (BuildResu
 	if err != nil {
 		return BuildResult{}, err
 	}
-	graph := AssembleGraph(emitted, corpus)
-	out := resolveSitePath(options.SiteRoot, options.KGPath)
-	if err := WriteGraph(out, graph); err != nil {
+	digest := AssembleDigest(emitted, corpus)
+	out := resolveSitePath(options.SiteRoot, options.DigestPath)
+	if err := WriteDigest(out, digest); err != nil {
 		return BuildResult{}, err
 	}
 	return BuildResult{Status: "built", Path: out, ContentHash: corpus.ContentHash, Chunks: len(corpus.Chunks)}, nil
 }
 
-func AssembleGraph(emitted EmittedDistillation, corpus CorpusBuild) KnowledgeGraph {
+func AssembleDigest(emitted EmittedDistillation, corpus CorpusBuild) Digest {
 	summaryByID := map[string]string{}
 	for _, entry := range emitted.Summaries {
 		summaryByID[entry.ID] = entry.Summary
 	}
-	graph := KnowledgeGraph{
+	digest := Digest{
 		Version:     2,
 		GeneratedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
 		ContentHash: corpus.ContentHash,
@@ -171,14 +171,14 @@ func AssembleGraph(emitted EmittedDistillation, corpus CorpusBuild) KnowledgeGra
 		Overview:    BuildOverview(corpus.Chunks),
 		Suggestions: emitted.Suggestions,
 		Nodes:       BuildNodes(corpus.Chunks, summaryByID),
-		Edges:       []KnowledgeEdge{},
+		Edges:       []DigestEdge{},
 	}
-	normalizeGraph(&graph)
-	return graph
+	normalizeDigest(&digest)
+	return digest
 }
 
-func BuildNodes(chunks []Chunk, summaryByID map[string]string) []KnowledgeNode {
-	nodes := make([]KnowledgeNode, 0, len(chunks))
+func BuildNodes(chunks []Chunk, summaryByID map[string]string) []DigestNode {
+	nodes := make([]DigestNode, 0, len(chunks))
 	for _, chunk := range chunks {
 		facts := ExtractFacts(chunk.ID, chunk.Raw)
 		summary := strings.TrimSpace(summaryByID[chunk.ID])
@@ -204,7 +204,7 @@ func BuildNodes(chunks []Chunk, summaryByID map[string]string) []KnowledgeNode {
 			value := chunk.AnchorID
 			anchor = &value
 		}
-		nodes = append(nodes, KnowledgeNode{
+		nodes = append(nodes, DigestNode{
 			ID:      chunk.ID,
 			Kind:    "section",
 			Title:   chunk.DocTitle,
@@ -250,11 +250,11 @@ func BuildOverview(chunks []Chunk) string {
 	return strings.Join(lines, "\n")
 }
 
-func WriteGraph(path string, graph KnowledgeGraph) error {
+func WriteDigest(path string, digest Digest) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(graph, "", "  ")
+	data, err := json.MarshalIndent(digest, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -276,8 +276,8 @@ func normalizeBuildOptions(options *BuildOptions) {
 	if options.BasePath == "" {
 		options.BasePath = "/docs/"
 	}
-	if options.KGPath == "" {
-		options.KGPath = ".hev-ask/digest.json"
+	if options.DigestPath == "" {
+		options.DigestPath = ".hev-ask/digest.json"
 	}
 	if options.ChunkHeadingDepth == 0 {
 		options.ChunkHeadingDepth = 3

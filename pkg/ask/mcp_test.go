@@ -20,7 +20,7 @@ func TestServeMCPListsToolsAndCallsLocalReadTools(t *testing.T) {
 	}, "\n") + "\n"
 
 	var out bytes.Buffer
-	if err := ServeMCP(context.Background(), MCPOptions{KGPath: path}, strings.NewReader(input), &out); err != nil {
+	if err := ServeMCP(context.Background(), MCPOptions{DigestPath: path}, strings.NewReader(input), &out); err != nil {
 		t.Fatal(err)
 	}
 
@@ -64,7 +64,7 @@ func TestServeMCPListsToolsAndCallsLocalReadTools(t *testing.T) {
 		StructuredContent GlossaryEntry `json:"structuredContent"`
 	}
 	decodeMCPResult(t, responses[3], &glossary)
-	if glossary.IsError || glossary.StructuredContent.Term != "Knowledge graph" {
+	if glossary.IsError || glossary.StructuredContent.Term != "Knowledge digest" {
 		t.Fatalf("unexpected glossary result: %#v", glossary)
 	}
 }
@@ -74,7 +74,7 @@ func TestServeMCPAnswerWithoutEndpointReturnsToolError(t *testing.T) {
 	input := `{"jsonrpc":"2.0","id":"answer","method":"tools/call","params":{"name":"answer","arguments":{"query":"How does it work?"}}}` + "\n"
 
 	var out bytes.Buffer
-	if err := ServeMCP(context.Background(), MCPOptions{KGPath: path}, strings.NewReader(input), &out); err != nil {
+	if err := ServeMCP(context.Background(), MCPOptions{DigestPath: path}, strings.NewReader(input), &out); err != nil {
 		t.Fatal(err)
 	}
 
@@ -95,8 +95,8 @@ func TestServeMCPAnswerWithoutEndpointReturnsToolError(t *testing.T) {
 func writeMCPTestGraph(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	path := filepath.Join(dir, "kg.json")
-	data, err := json.Marshal(testGraph())
+	path := filepath.Join(dir, "digest.json")
+	data, err := json.Marshal(testDigest())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -47,7 +47,7 @@ function tokenSet(text: string): Set<string> {
 /**
  * A cited link survives only if the text around it shares a distinctive term
  * with the cited section. Lenient by design: a source with no `terms` (e.g. a
- * legacy/degraded graph) is never degraded on this basis.
+ * legacy/degraded digest) is never degraded on this basis.
  */
 function supportsClaim(unitTokens: Set<string>, source: Source): boolean {
   if (!source.terms || source.terms.length === 0) return true;

@@ -1,4 +1,4 @@
-import type { GlossaryEntry, KnowledgeGraph, KnowledgeNode } from './schema.ts';
+import type { GlossaryEntry, Digest, DigestNode } from './schema.ts';
 
 export interface SectionSummary {
   id: string;
@@ -8,39 +8,39 @@ export interface SectionSummary {
   url: string;
 }
 
-export function listGlossary(kg: KnowledgeGraph): GlossaryEntry[] {
-  return kg.glossary;
+export function listGlossary(digest: Digest): GlossaryEntry[] {
+  return digest.glossary;
 }
 
-export function getGlossaryEntry(kg: KnowledgeGraph, term: string): GlossaryEntry | null {
+export function getGlossaryEntry(digest: Digest, term: string): GlossaryEntry | null {
   const needle = normalizeLookup(term);
   if (!needle) return null;
   return (
-    kg.glossary.find((entry) => {
+    digest.glossary.find((entry) => {
       if (normalizeLookup(entry.term) === needle) return true;
       return entry.aliases.some((alias) => normalizeLookup(alias) === needle);
     }) ?? null
   );
 }
 
-export function listSectionSummaries(kg: KnowledgeGraph, group?: string | null): SectionSummary[] {
+export function listSectionSummaries(digest: Digest, group?: string | null): SectionSummary[] {
   const wantedGroup = group ? normalizeLookup(group) : '';
-  return kg.nodes
+  return digest.nodes
     .filter((node) => !wantedGroup || normalizeLookup(node.group ?? '') === wantedGroup)
     .map(sectionSummary);
 }
 
-export function getSection(kg: KnowledgeGraph, id: string): KnowledgeNode | null {
+export function getSection(digest: Digest, id: string): DigestNode | null {
   const needle = decodePathValue(id).trim();
   if (!needle) return null;
-  return kg.nodes.find((node) => node.id === needle) ?? null;
+  return digest.nodes.find((node) => node.id === needle) ?? null;
 }
 
-export function getOverview(kg: KnowledgeGraph): { overview: string; context: string } {
-  return { overview: kg.overview, context: kg.context };
+export function getOverview(digest: Digest): { overview: string; context: string } {
+  return { overview: digest.overview, context: digest.context };
 }
 
-export function sectionSummary(node: KnowledgeNode): SectionSummary {
+export function sectionSummary(node: DigestNode): SectionSummary {
   return {
     id: node.id,
     title: node.title,

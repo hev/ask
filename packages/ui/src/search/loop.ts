@@ -10,7 +10,7 @@ import {
   type CallClaudeOptions,
   type StreamEvent,
 } from '../llm.ts';
-import type { KnowledgeGraph, KnowledgeNode } from '../kg/schema';
+import type { Digest, DigestNode } from '../digest/schema';
 import type { Source } from '../components/markdown.ts';
 import type { Chunk } from './chunk';
 import { prefilter, type Candidate } from './prefilter.ts';
@@ -41,7 +41,7 @@ export interface AnswerLoopArgs {
   apiKey: string;
   query: string;
   chunks: Chunk[];
-  kg: KnowledgeGraph;
+  digest: Digest;
   config: SearchLoopConfig;
   signal?: AbortSignal;
   call?: CallClaude;
@@ -113,19 +113,19 @@ async function* tracedStream(
 
 /**
  * Entry point. When the committed digest carries distilled `nodes`, the
- * agent navigates that shadow graph (graph path). A node-less (v1 / degraded)
- * graph falls back to the original keyword-search loop, unchanged.
+ * agent navigates that shadow digest (digest path). A node-less (v1 / degraded)
+ * digest falls back to the original keyword-search loop, unchanged.
  */
 export async function* runAgenticAnswerLoop(args: AnswerLoopArgs): AsyncGenerator<AgenticEvent> {
-  if (args.kg.nodes && args.kg.nodes.length > 0) {
-    yield* graphAnswerLoop(args);
+  if (args.digest.nodes && args.digest.nodes.length > 0) {
+    yield* digestAnswerLoop(args);
   } else {
     yield* legacyAnswerLoop(args);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Graph path: navigate the distilled shadow graph and answer from it.
+// Graph path: navigate the distilled shadow digest and answer from it.
 // ---------------------------------------------------------------------------
 
 const OPEN_SECTION_TOOL: AnthropicTool = {
@@ -144,11 +144,11 @@ const OPEN_SECTION_TOOL: AnthropicTool = {
   },
 };
 
-async function* graphAnswerLoop({
+async function* digestAnswerLoop({
   apiKey,
   query,
   chunks,
-  kg,
+  digest,
   config,
   signal,
   call = callClaude,
@@ -156,12 +156,12 @@ async function* graphAnswerLoop({
   telemetry = makeTelemetry(),
 }: AnswerLoopArgs): AsyncGenerator<AgenticEvent> {
   const byId = new Map(chunks.map((chunk) => [chunk.id, chunk]));
-  const nodesById = new Map(kg.nodes.map((node) => [node.id, node]));
-  const opened = new Map<string, KnowledgeNode>();
+  const nodesById = new Map(digest.nodes.map((node) => [node.id, node]));
+  const opened = new Map<string, DigestNode>();
   const messages: AnthropicMessage[] = [{ role: 'user', content: `Query: ${query}` }];
-  const system = buildGraphSystemPrompt(kg);
+  const system = buildDigestSystemPrompt(digest);
 
-  const open = (id: string): KnowledgeNode | null => {
+  const open = (id: string): DigestNode | null => {
     const node = nodesById.get(id);
     if (node) opened.set(id, node);
     return node ?? null;
@@ -209,7 +209,7 @@ async function* graphAnswerLoop({
   // Fallback: ground the answer even if the model opened nothing, by opening the
   // best keyword matches over the map.
   if (!opened.size) {
-    for (const candidate of prefilter(chunks, query, kg.glossary, config.maxResults, config.perDocCap, kg.nodes)) {
+    for (const candidate of prefilter(chunks, query, digest.glossary, config.maxResults, config.perDocCap, digest.nodes)) {
       const node = open(candidate.id);
       if (node) yield { type: 'search', query: node.heading ?? node.title };
     }
@@ -251,7 +251,7 @@ async function* graphAnswerLoop({
   yield { type: 'done' };
 }
 
-function openSectionResult(node: KnowledgeNode, byId: Map<string, Chunk>) {
+function openSectionResult(node: DigestNode, byId: Map<string, Chunk>) {
   const base = {
     id: node.id,
     url: node.url,
@@ -270,7 +270,7 @@ function openSectionResult(node: KnowledgeNode, byId: Map<string, Chunk>) {
   return base;
 }
 
-function buildGraphSystemPrompt(kg: KnowledgeGraph): AnthropicTextBlock[] {
+function buildDigestSystemPrompt(digest: Digest): AnthropicTextBlock[] {
   return [
     {
       type: 'text',
@@ -287,7 +287,7 @@ Write a short, direct answer in Markdown:
     },
     {
       type: 'text',
-      text: `<map>\n${kg.overview || renderNodeMap(kg.nodes)}\n</map>\n\n<summaries>\n${kg.nodes
+      text: `<map>\n${digest.overview || renderNodeMap(digest.nodes)}\n</map>\n\n<summaries>\n${digest.nodes
         .map((node) => `- \`${node.id}\`${node.mode === 'source-primary' ? ' (reference)' : ''}: ${node.summary}`)
         .join('\n')}\n</summaries>`,
       cache_control: { type: 'ephemeral' },
@@ -295,12 +295,12 @@ Write a short, direct answer in Markdown:
   ];
 }
 
-/** Fallback map when a graph predates the stored `overview`. */
-function renderNodeMap(nodes: KnowledgeNode[]): string {
+/** Fallback map when a digest predates the stored `overview`. */
+function renderNodeMap(nodes: DigestNode[]): string {
   return nodes.map((node) => `- ${node.heading ?? node.title} — \`${node.id}\``).join('\n');
 }
 
-function sourcesFromNodes(opened: Map<string, KnowledgeNode>, maxResults: number): Source[] {
+function sourcesFromNodes(opened: Map<string, DigestNode>, maxResults: number): Source[] {
   const sources: Source[] = [];
   const urls = new Set<string>();
   for (const node of opened.values()) {
@@ -347,7 +347,7 @@ async function* legacyAnswerLoop({
   apiKey,
   query,
   chunks,
-  kg,
+  digest,
   config,
   signal,
   call = callClaude,
@@ -357,7 +357,7 @@ async function* legacyAnswerLoop({
   const byId = new Map(chunks.map((chunk) => [chunk.id, chunk]));
   const seen = new Map<string, SeenCandidate>();
   const messages: AnthropicMessage[] = [{ role: 'user', content: `Query: ${query}` }];
-  const system = buildSystemPrompt(kg);
+  const system = buildSystemPrompt(digest);
 
   // Phase 1: bounded, non-streaming search loop.
   for (let i = 0; i < config.maxIterations; i += 1) {
@@ -384,7 +384,7 @@ async function* legacyAnswerLoop({
       if (block.type !== 'tool_use' || block.name !== 'search') continue;
       const searchQuery = normalizeToolQuery(block.input) || query;
       yield { type: 'search', query: searchQuery };
-      const fresh = runSearchTool(searchQuery, chunks, byId, seen, kg, config);
+      const fresh = runSearchTool(searchQuery, chunks, byId, seen, digest, config);
       toolResults.push({
         type: 'tool_result',
         tool_use_id: block.id,
@@ -397,7 +397,7 @@ async function* legacyAnswerLoop({
   }
 
   if (!seen.size) {
-    const fresh = runSearchTool(query, chunks, byId, seen, kg, config);
+    const fresh = runSearchTool(query, chunks, byId, seen, digest, config);
     yield { type: 'search', query };
     if (lastRole(messages) !== 'user') {
       messages.push({
@@ -441,10 +441,10 @@ function runSearchTool(
   chunks: Chunk[],
   byId: Map<string, Chunk>,
   seen: Map<string, SeenCandidate>,
-  kg: KnowledgeGraph,
+  digest: Digest,
   config: SearchLoopConfig,
 ): Candidate[] {
-  return prefilter(chunks, searchQuery, kg.glossary, config.candidatePerSearch, config.perDocCap, kg.nodes)
+  return prefilter(chunks, searchQuery, digest.glossary, config.candidatePerSearch, config.perDocCap, digest.nodes)
     .filter((candidate) => !seen.has(candidate.id))
     .map((candidate) => {
       const chunk = byId.get(candidate.id);
@@ -464,7 +464,7 @@ function candidateForToolResult(candidate: Candidate, byId: Map<string, Chunk>) 
   };
 }
 
-function buildSystemPrompt(kg: KnowledgeGraph): AnthropicTextBlock[] {
+function buildSystemPrompt(digest: Digest): AnthropicTextBlock[] {
   return [
     {
       type: 'text',
@@ -481,7 +481,7 @@ Write a short, direct answer in Markdown:
     },
     {
       type: 'text',
-      text: `<domain_context>\n${kg.context || 'No digest context is available.'}\n</domain_context>`,
+      text: `<domain_context>\n${digest.context || 'No digest context is available.'}\n</domain_context>`,
       cache_control: { type: 'ephemeral' },
     },
   ];

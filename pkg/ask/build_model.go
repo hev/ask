@@ -13,30 +13,43 @@ import (
 const (
 	anthropicMessagesURL = "https://api.anthropic.com/v1/messages"
 	anthropicVersion     = "2023-06-01"
-	defaultKGModel       = "claude-opus-4-8"
+	defaultDigestModel   = "claude-opus-4-8"
+	// MaxSingleShotCorpusBytes is the hard ceiling for the one-call `digest build`
+	// path; bigger corpora must use the sharded flow.
+	MaxSingleShotCorpusBytes = 600_000
 )
 
-type BuildKnowledgeGraphOptions struct {
+type BuildDigestOptions struct {
 	BuildOptions
-	KGModel    string
-	APIKey     string
-	APIURL     string
-	HTTPClient *http.Client
+	DigestModel string
+	APIKey      string
+	APIURL      string
+	HTTPClient  *http.Client
 }
 
-func BuildKnowledgeGraph(options BuildKnowledgeGraphOptions) (BuildResult, error) {
+func BuildDigest(options BuildDigestOptions) (BuildResult, error) {
 	normalizeBuildOptions(&options.BuildOptions)
-	if options.KGModel == "" {
-		options.KGModel = defaultKGModel
+	if options.DigestModel == "" {
+		options.DigestModel = defaultDigestModel
 	}
 	corpus, err := BuildCorpus(options.BuildOptions)
 	if err != nil {
 		return BuildResult{}, err
 	}
-	outPath := resolveSitePath(options.SiteRoot, options.KGPath)
-	existing, err := LoadGraph(outPath)
+	outPath := resolveSitePath(options.SiteRoot, options.DigestPath)
+	existing, err := LoadDigest(outPath)
 	if err == nil && existing.Version == 2 && existing.ContentHash == corpus.ContentHash && len(existing.Nodes) > 0 {
 		return BuildResult{Status: "skipped", Path: outPath, ContentHash: corpus.ContentHash, Chunks: len(corpus.Chunks)}, nil
+	}
+
+	// The single-shot build hands the whole corpus to one model call. Past this
+	// size the distillation degrades (or truncates), so fail loudly and point
+	// at the sharded flow — same policy as the max_tokens truncation check.
+	if size := len(renderCorpusText(CorpusSections(corpus))); size > MaxSingleShotCorpusBytes {
+		return BuildResult{}, fmt.Errorf(
+			"corpus is ~%dKB of text — too large for a single-shot digest build (limit ~%dKB); shard it instead: `ask digest corpus --shards-dir .hev-ask/shards`, distil each shard with the build-digest skill, then `ask digest assemble --input-dir .hev-ask/shards`",
+			size/1024, MaxSingleShotCorpusBytes/1024,
+		)
 	}
 
 	apiKey := options.APIKey
@@ -47,29 +60,29 @@ func BuildKnowledgeGraph(options BuildKnowledgeGraphOptions) (BuildResult, error
 		return BuildResult{}, fmt.Errorf("ANTHROPIC_API_KEY is required to build a fresh digest")
 	}
 
-	emitted, err := callKnowledgeGraphModel(options, apiKey, corpus)
+	emitted, err := callDigestModel(options, apiKey, corpus)
 	if err != nil {
 		return BuildResult{}, err
 	}
-	graph := AssembleGraph(emitted, corpus)
-	if err := WriteGraph(outPath, graph); err != nil {
+	digest := AssembleDigest(emitted, corpus)
+	if err := WriteDigest(outPath, digest); err != nil {
 		return BuildResult{}, err
 	}
 	return BuildResult{Status: "built", Path: outPath, ContentHash: corpus.ContentHash, Chunks: len(corpus.Chunks)}, nil
 }
 
-func callKnowledgeGraphModel(options BuildKnowledgeGraphOptions, apiKey string, corpus CorpusBuild) (EmittedDistillation, error) {
+func callDigestModel(options BuildDigestOptions, apiKey string, corpus CorpusBuild) (EmittedDistillation, error) {
 	corpusText := renderCorpusText(CorpusSections(corpus))
 	// One summary per section makes the output scale with corpus size; a tight
 	// cap starves the trailing schema keys (the model emits suggestions last
 	// and returns [] when it runs low), so give it generous headroom.
 	body := map[string]any{
-		"model":      options.KGModel,
+		"model":      options.DigestModel,
 		"max_tokens": 32000,
 		"system": []map[string]any{
 			{
 				"type": "text",
-				"text": kgSystemPrompt,
+				"text": digestSystemPrompt,
 			},
 			{
 				"type":          "text",
@@ -84,7 +97,7 @@ func callKnowledgeGraphModel(options BuildKnowledgeGraphOptions, apiKey string, 
 					"Every id in the corpus must get a summary.",
 			},
 		},
-		"tools": []map[string]any{knowledgeGraphTool()},
+		"tools": []map[string]any{digestTool()},
 		"tool_choice": map[string]string{
 			"type": "tool",
 			"name": "emit_digest",
@@ -156,12 +169,12 @@ func renderCorpusText(sections []CorpusSection) string {
 	return strings.Join(parts, "\n\n---\n\n")
 }
 
-const kgSystemPrompt = "You build documentation digests for an AI search agent. Return only the forced tool call. " +
+const digestSystemPrompt = "You build documentation digests for an AI search agent. Return only the forced tool call. " +
 	"Write a compact orientation, a glossary with aliases real users would type, one tight summary for every section id in the corpus, " +
 	"and 3-5 natural questions a reader might ask that these docs answer. Summaries are what the agent reasons from, so make them faithful " +
 	"and self-contained; paraphrase prose but never restate code, flags, or exact identifiers."
 
-func knowledgeGraphTool() map[string]any {
+func digestTool() map[string]any {
 	return map[string]any{
 		"name":        "emit_digest",
 		"description": "Emit a documentation digest: a compact orientation, a glossary, and one distilled summary per section.",

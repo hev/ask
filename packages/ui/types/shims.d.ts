@@ -11,7 +11,7 @@ declare module 'virtual:hev-ask/config' {
   const config: {
     collections: string[] | null;
     model: string;
-    kgModel: string;
+    digestModel: string;
     basePath: string;
     maxResults: number;
     answerMaxTokens: number;
@@ -19,14 +19,14 @@ declare module 'virtual:hev-ask/config' {
     chunkHeadingDepth: number;
     candidatePerSearch: number;
     perDocCap: number;
-    kgPath: string;
-    kgContentGlobs?: string[];
+    digestPath: string;
+    digestContentGlobs?: string[];
     endpoint: string;
   };
   export default config;
 }
 
-declare module 'virtual:hev-ask/kg' {
-  const kg: import('../src/kg/schema').KnowledgeGraph;
-  export default kg;
+declare module 'virtual:hev-ask/digest' {
+  const digest: import('../src/digest/schema').Digest;
+  export default digest;
 }

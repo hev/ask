@@ -8,8 +8,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "kg:build": "ask kg build",
-    "kg:verify": "ask kg verify",
+    "digest:build": "ask digest build",
+    "digest:verify": "ask digest verify",
     "deploy": "pnpm run build && wrangler pages deploy"
   },
   "dependencies": {

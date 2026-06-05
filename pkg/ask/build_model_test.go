@@ -8,18 +8,18 @@ import (
 	"testing"
 )
 
-func TestBuildKnowledgeGraphSkipsCurrentGraphWithoutAPIKey(t *testing.T) {
+func TestBuildDigestSkipsCurrentGraphWithoutAPIKey(t *testing.T) {
 	root := writeParityFixture(t)
 	options := BuildOptions{SiteRoot: root, Collections: []string{"docs"}, BasePath: "/docs/", ChunkHeadingDepth: 3}
 	corpus, err := BuildCorpus(options)
 	if err != nil {
 		t.Fatal(err)
 	}
-	graph := AssembleGraph(EmittedDistillation{Context: "ctx", Glossary: []GlossaryEntry{}, Summaries: []SectionSummaryIn{}}, corpus)
-	if err := WriteGraph(filepath.Join(root, ".hev-ask/digest.json"), graph); err != nil {
+	digest := AssembleDigest(EmittedDistillation{Context: "ctx", Glossary: []GlossaryEntry{}, Summaries: []SectionSummaryIn{}}, corpus)
+	if err := WriteDigest(filepath.Join(root, ".hev-ask/digest.json"), digest); err != nil {
 		t.Fatal(err)
 	}
-	result, err := BuildKnowledgeGraph(BuildKnowledgeGraphOptions{BuildOptions: options})
+	result, err := BuildDigest(BuildDigestOptions{BuildOptions: options})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func TestBuildKnowledgeGraphSkipsCurrentGraphWithoutAPIKey(t *testing.T) {
 	}
 }
 
-func TestBuildKnowledgeGraphCallsAnthropicAndWritesGraph(t *testing.T) {
+func TestBuildDigestCallsAnthropicAndWritesGraph(t *testing.T) {
 	root := writeParityFixture(t)
 	options := BuildOptions{SiteRoot: root, Collections: []string{"docs"}, BasePath: "/docs/", ChunkHeadingDepth: 3}
 	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
@@ -71,9 +71,9 @@ func TestBuildKnowledgeGraphCallsAnthropicAndWritesGraph(t *testing.T) {
 		data, _ := json.Marshal(payload)
 		return response(http.StatusOK, "application/json", data), nil
 	})}
-	result, err := BuildKnowledgeGraph(BuildKnowledgeGraphOptions{
+	result, err := BuildDigest(BuildDigestOptions{
 		BuildOptions: options,
-		KGModel:      "test-model",
+		DigestModel:  "test-model",
 		APIKey:       "test-key",
 		HTTPClient:   client,
 	})
@@ -83,20 +83,20 @@ func TestBuildKnowledgeGraphCallsAnthropicAndWritesGraph(t *testing.T) {
 	if result.Status != "built" {
 		t.Fatalf("unexpected result: %#v", result)
 	}
-	graph, err := LoadGraph(filepath.Join(root, ".hev-ask/digest.json"))
+	digest, err := LoadDigest(filepath.Join(root, ".hev-ask/digest.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	node, ok := GetSection(graph, "api/config#options")
+	node, ok := GetSection(digest, "api/config#options")
 	if !ok || node.Summary != "Configures the endpoint." {
-		t.Fatalf("unexpected graph node: %#v %v", node, ok)
+		t.Fatalf("unexpected digest node: %#v %v", node, ok)
 	}
 }
 
-func TestBuildKnowledgeGraphRequiresKeyForFreshGraph(t *testing.T) {
+func TestBuildDigestRequiresKeyForFreshGraph(t *testing.T) {
 	root := writeParityFixture(t)
 	t.Setenv("ANTHROPIC_API_KEY", "")
-	_, err := BuildKnowledgeGraph(BuildKnowledgeGraphOptions{
+	_, err := BuildDigest(BuildDigestOptions{
 		BuildOptions: BuildOptions{SiteRoot: root, Collections: []string{"docs"}, BasePath: "/docs/", ChunkHeadingDepth: 3},
 	})
 	if err == nil || !strings.Contains(err.Error(), "ANTHROPIC_API_KEY") {

@@ -1,6 +1,6 @@
 {
   "name": "@hev/ask-darwin-arm64",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Darwin arm64 binary for the @hev/ask CLI.",
   "license": "MIT",
   "os": [

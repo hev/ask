@@ -19,7 +19,7 @@ For local, keyless graph reads:
   "mcpServers": {
     "docs": {
       "command": "ask",
-      "args": ["--kg-path", ".hev-ask/digest.json", "mcp"]
+      "args": ["--digest-path", ".hev-ask/digest.json", "mcp"]
     }
   }
 }
@@ -64,7 +64,7 @@ route the structured object into later steps.
 
 - `--endpoint <url>` calls the deployed HTTP read API and streams `answer`
   through `POST /api/ask`.
-- Otherwise it reads `--kg-path` from disk, defaulting to `.hev-ask/digest.json`.
+- Otherwise it reads `--digest-path` from disk, defaulting to `.hev-ask/digest.json`.
 
 Local reads load the digest on each tool call so a just-rebuilt `digest.json` is
 visible without restarting the MCP server.

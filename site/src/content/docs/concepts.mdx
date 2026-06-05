@@ -150,14 +150,14 @@ The model step can run two ways, and both feed the same deterministic assembler:
   inside your existing Claude Code subscription — **no `ANTHROPIC_API_KEY`, no
   per-build token spend on your own key**, and it fits the editor workflow most
   authors are already in.
-- **`ask kg build` (fallback).** One `ANTHROPIC_API_KEY` call to
+- **`ask digest build` (fallback).** One `ANTHROPIC_API_KEY` call to
   **Claude Opus 4.8** (default) does the same distillation unattended — the right
   choice for CI or anyone not using Claude Code.
 
 Either way the build is **hash-gated**: it hashes the concatenated chunk text
 and, if a committed `digest.json` with nodes already matches that hash, it does no
 model work at all. The JSON is reviewed in pull requests like any other change.
-See the [digest reference](/docs/api/knowledge-graph) and the
+See the [digest reference](/docs/api/digest) and the
 [CLI reference](/docs/api/cli) for the file format and the build commands.
 
 ## Degradation, by design

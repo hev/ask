@@ -15,7 +15,7 @@ func TestCommandGroupRunSearchJSON(t *testing.T) {
 	group := NewCommandGroup(CommandOptions{})
 
 	var stdout, stderr bytes.Buffer
-	err := group.Run(context.Background(), []string{"--kg-path", path, "--json", "--max-results", "1", "search", "kg", "path"}, strings.NewReader(""), &stdout, &stderr)
+	err := group.Run(context.Background(), []string{"--digest-path", path, "--json", "--max-results", "1", "search", "kg", "path"}, strings.NewReader(""), &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("run failed: %v\nstderr: %s", err, stderr.String())
 	}
@@ -31,14 +31,14 @@ func TestCommandGroupRunSearchJSON(t *testing.T) {
 
 func TestCommandGroupRunGlossaryAlias(t *testing.T) {
 	path := writeCommandTestGraph(t)
-	group := NewCommandGroup(CommandOptions{KGPath: path, JSONOutput: true})
+	group := NewCommandGroup(CommandOptions{DigestPath: path, JSONOutput: true})
 
 	var stdout, stderr bytes.Buffer
 	err := group.Run(context.Background(), []string{"glossary", "get", "kg"}, strings.NewReader(""), &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("run failed: %v\nstderr: %s", err, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), `"term": "Knowledge graph"`) {
+	if !strings.Contains(stdout.String(), `"term": "Knowledge digest"`) {
 		t.Fatalf("unexpected glossary output: %s", stdout.String())
 	}
 }
@@ -46,8 +46,8 @@ func TestCommandGroupRunGlossaryAlias(t *testing.T) {
 func writeCommandTestGraph(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	path := filepath.Join(dir, "kg.json")
-	data, err := json.Marshal(testGraph())
+	path := filepath.Join(dir, "digest.json")
+	data, err := json.Marshal(testDigest())
 	if err != nil {
 		t.Fatal(err)
 	}

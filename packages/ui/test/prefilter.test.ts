@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { prefilter } from '../src/search/prefilter.ts';
 import { tokenize, type Chunk } from '../src/search/chunk.ts';
-import type { KnowledgeNode } from '../src/kg/schema.ts';
+import type { DigestNode } from '../src/digest/schema.ts';
 
 function chunk(id: string, docSlug: string, text: string): Chunk {
   return {
@@ -18,7 +18,7 @@ function chunk(id: string, docSlug: string, text: string): Chunk {
   };
 }
 
-function node(id: string, terms: string[], summary = ''): KnowledgeNode {
+function node(id: string, terms: string[], summary = ''): DigestNode {
   return {
     id,
     kind: 'section',
@@ -45,8 +45,8 @@ test('without nodes, prefilter is plain token overlap (ties break by id)', () =>
   assert.equal(out[0].id, 'a#one', 'equal scores → lexical id order');
 });
 
-test('a graph node lifts its section above an incidental mention', () => {
-  // b#two is the section the graph considers central to "autoscaling".
+test('a digest node lifts its section above an incidental mention', () => {
+  // b#two is the section the digest considers central to "autoscaling".
   const nodes = [node('a#one', []), node('b#two', ['autoscaling'])];
   const out = prefilter(chunks, 'autoscaling', [], 5, 2, nodes);
   assert.equal(out[0].id, 'b#two', 'node terms boost outranks the incidental mention');

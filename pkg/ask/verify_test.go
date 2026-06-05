@@ -45,18 +45,18 @@ func TestVerifyAnchorsChecksCoverageAndLiteralFidelity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	graph := AssembleGraph(EmittedDistillation{
+	digest := AssembleDigest(EmittedDistillation{
 		Context:   "ctx",
 		Glossary:  []GlossaryEntry{},
 		Summaries: []SectionSummaryIn{},
 	}, corpus)
-	for i := range graph.Nodes {
-		if graph.Nodes[i].ID == "index#install-ask" {
-			graph.Nodes[i].Facts = []Fact{}
+	for i := range digest.Nodes {
+		if digest.Nodes[i].ID == "index#install-ask" {
+			digest.Nodes[i].Facts = []Fact{}
 		}
 	}
-	graph.Nodes = graph.Nodes[:len(graph.Nodes)-1]
-	if err := WriteGraph(filepath.Join(root, ".hev-ask/digest.json"), graph); err != nil {
+	digest.Nodes = digest.Nodes[:len(digest.Nodes)-1]
+	if err := WriteDigest(filepath.Join(root, ".hev-ask/digest.json"), digest); err != nil {
 		t.Fatal(err)
 	}
 

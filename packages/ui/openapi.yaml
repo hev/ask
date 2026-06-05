@@ -2,12 +2,12 @@ openapi: 3.1.0
 info:
   title: hev ask API
   version: 3.0.0
-  summary: Search, answer, and knowledge-graph read API exposed by the @hev/ask Astro integration.
+  summary: Search, answer, and digest read API exposed by the @hev/ask Astro integration.
   description: |
     `@hev/ask` mounts these routes on a consuming Astro site (default base `/api/ask`,
     configurable via the integration's `endpoint` option). Two paths existed in v2:
     keyword + agentic **search** (`POST /api/ask`) and **suggestions** (`GET /api/ask`).
-    v3 adds keyless **read** routes over the committed knowledge graph
+    v3 adds keyless **read** routes over the committed ask digest
     (`/api/ask/glossary`, `/api/ask/sections`, `/api/ask/overview`) so a coding agent —
     via the `ask` CLI, the MCP server, or a generated client — can query the docs
     directly.
@@ -28,8 +28,8 @@ servers:
 tags:
   - name: search
     description: Keyword and agentic search/answer.
-  - name: knowledge-graph
-    description: Keyless reads over the committed knowledge graph.
+  - name: digest
+    description: Keyless reads over the committed ask digest.
 
 paths:
   /api/ask:
@@ -96,7 +96,7 @@ paths:
 
   /api/ask/glossary:
     get:
-      tags: [knowledge-graph]
+      tags: [digest]
       operationId: listGlossary
       summary: List glossary terms
       description: All glossary entries from the committed graph. Keyless.
@@ -115,7 +115,7 @@ paths:
 
   /api/ask/glossary/{term}:
     get:
-      tags: [knowledge-graph]
+      tags: [digest]
       operationId: getGlossaryTerm
       summary: Get one glossary entry
       description: Matches case-insensitively on the term or any of its aliases.
@@ -135,7 +135,7 @@ paths:
 
   /api/ask/sections:
     get:
-      tags: [knowledge-graph]
+      tags: [digest]
       operationId: listSections
       summary: List section nodes
       description: |
@@ -162,7 +162,7 @@ paths:
 
   /api/ask/sections/{id}:
     get:
-      tags: [knowledge-graph]
+      tags: [digest]
       operationId: getSection
       summary: Get one section node
       description: The full distilled node — summary, verbatim facts, sources, deep link.
@@ -177,7 +177,7 @@ paths:
           description: The section node.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/KnowledgeNode" }
+              schema: { $ref: "#/components/schemas/DigestNode" }
         "404":
           description: No node with that id.
           content:
@@ -186,7 +186,7 @@ paths:
 
   /api/ask/overview:
     get:
-      tags: [knowledge-graph]
+      tags: [digest]
       operationId: getOverview
       summary: Grouped map + orientation
       description: |
@@ -326,7 +326,7 @@ components:
           type: [string, "null"]
           description: github-slugger anchor, or null for a page-level section.
 
-    KnowledgeNode:
+    DigestNode:
       type: object
       required: [id, kind, title, url, summary, facts, sources, mode, terms]
       properties:

@@ -1,14 +1,14 @@
 #!/usr/bin/env node
-import { assembleFromDistillation, buildKnowledgeGraph, writeCorpusInput } from './build.ts';
+import { assembleFromDistillation, buildDigest, writeCorpusInput } from './build.ts';
 import { verifyAnchors } from './verify.ts';
 
 interface Flags {
   collections: string[];
   basePath?: string;
-  kgPath?: string;
-  kgContentGlobs: string[];
+  digestPath?: string;
+  digestContentGlobs: string[];
   chunkHeadingDepth?: number;
-  kgModel?: string;
+  digestModel?: string;
   buildCommand?: string;
   skipBuild?: boolean;
   strict?: boolean;
@@ -21,46 +21,46 @@ const flags = parseFlags(args);
 
 try {
   if (command === 'build') {
-    const result = await buildKnowledgeGraph({
+    const result = await buildDigest({
       siteRoot: process.cwd(),
       collections: flags.collections.length ? flags.collections : ['docs'],
       basePath: flags.basePath ?? '/docs/',
-      kgPath: flags.kgPath ?? '.hev-ask/digest.json',
-      kgContentGlobs: flags.kgContentGlobs.length ? flags.kgContentGlobs : undefined,
+      digestPath: flags.digestPath ?? '.hev-ask/digest.json',
+      digestContentGlobs: flags.digestContentGlobs.length ? flags.digestContentGlobs : undefined,
       chunkHeadingDepth: flags.chunkHeadingDepth ?? 3,
-      kgModel: flags.kgModel ?? 'claude-opus-4-8',
+      digestModel: flags.digestModel ?? 'claude-opus-4-8',
     });
-    console.log(`[hev-ask] kg:${result.status} ${result.path} (${result.chunks} chunks)`);
+    console.log(`[hev-ask] digest:${result.status} ${result.path} (${result.chunks} chunks)`);
   } else if (command === 'corpus') {
     const result = await writeCorpusInput({
       siteRoot: process.cwd(),
       collections: flags.collections.length ? flags.collections : ['docs'],
       basePath: flags.basePath ?? '/docs/',
-      kgPath: flags.kgPath ?? '.hev-ask/digest.json',
-      outPath: flags.out ?? '.hev-ask/kg-input.json',
-      kgContentGlobs: flags.kgContentGlobs.length ? flags.kgContentGlobs : undefined,
+      digestPath: flags.digestPath ?? '.hev-ask/digest.json',
+      outPath: flags.out ?? '.hev-ask/digest-input.json',
+      digestContentGlobs: flags.digestContentGlobs.length ? flags.digestContentGlobs : undefined,
       chunkHeadingDepth: flags.chunkHeadingDepth ?? 3,
     });
     const state = result.upToDate ? 'up-to-date' : 'needs-rebuild';
-    console.log(`[hev-ask] kg:corpus ${result.path} (${result.sections} sections, ${state})`);
+    console.log(`[hev-ask] digest:corpus ${result.path} (${result.sections} sections, ${state})`);
   } else if (command === 'assemble') {
     const result = await assembleFromDistillation({
       siteRoot: process.cwd(),
       collections: flags.collections.length ? flags.collections : ['docs'],
       basePath: flags.basePath ?? '/docs/',
-      kgPath: flags.kgPath ?? '.hev-ask/digest.json',
-      inputPath: flags.input ?? '.hev-ask/kg-distill.json',
-      kgContentGlobs: flags.kgContentGlobs.length ? flags.kgContentGlobs : undefined,
+      digestPath: flags.digestPath ?? '.hev-ask/digest.json',
+      inputPath: flags.input ?? '.hev-ask/digest-distill.json',
+      digestContentGlobs: flags.digestContentGlobs.length ? flags.digestContentGlobs : undefined,
       chunkHeadingDepth: flags.chunkHeadingDepth ?? 3,
     });
-    console.log(`[hev-ask] kg:${result.status} ${result.path} (${result.chunks} chunks)`);
+    console.log(`[hev-ask] digest:${result.status} ${result.path} (${result.chunks} chunks)`);
   } else if (command === 'verify') {
     const result = await verifyAnchors({
       siteRoot: process.cwd(),
       collections: flags.collections.length ? flags.collections : ['docs'],
       basePath: flags.basePath ?? '/docs/',
-      kgPath: flags.kgPath ?? '.hev-ask/digest.json',
-      kgContentGlobs: flags.kgContentGlobs.length ? flags.kgContentGlobs : undefined,
+      digestPath: flags.digestPath ?? '.hev-ask/digest.json',
+      digestContentGlobs: flags.digestContentGlobs.length ? flags.digestContentGlobs : undefined,
       chunkHeadingDepth: flags.chunkHeadingDepth ?? 3,
       buildCommand: flags.buildCommand,
       skipBuild: flags.skipBuild,
@@ -80,11 +80,11 @@ try {
     if (result.uncovered.length) {
       const sample = result.uncovered.slice(0, 5).join(', ');
       const more = result.uncovered.length > 5 ? `, …(+${result.uncovered.length - 5})` : '';
-      console.warn(`[hev-ask] ${result.uncovered.length} section(s) missing from the graph: ${sample}${more} — run \`ask kg build\`.`);
+      console.warn(`[hev-ask] ${result.uncovered.length} section(s) missing from the digest: ${sample}${more} — run \`ask digest build\`.`);
       if (flags.strict) failed = true;
     }
     if (result.dropped.length) {
-      console.warn(`[hev-ask] ${result.dropped.length} source literal(s) dropped from agent-primary nodes — run \`ask kg build\`:`);
+      console.warn(`[hev-ask] ${result.dropped.length} source literal(s) dropped from agent-primary nodes — run \`ask digest build\`:`);
       for (const drop of result.dropped.slice(0, 8)) console.warn(`  - ${drop.id}: ${drop.literal}`);
       if (flags.strict) failed = true;
     }
@@ -97,7 +97,7 @@ try {
     }
   } else {
     console.error(
-      'Usage: ask kg build|corpus|assemble|verify [--collection docs] [--base-path /docs/] [--out path] [--input path] [--strict]',
+      'Usage: ask digest build|corpus|assemble|verify [--collection docs] [--base-path /docs/] [--out path] [--input path] [--strict]',
     );
     process.exitCode = 1;
   }
@@ -107,7 +107,7 @@ try {
 }
 
 function parseFlags(args: string[]): Flags {
-  const flags: Flags = { collections: [], kgContentGlobs: [] };
+  const flags: Flags = { collections: [], digestContentGlobs: [] };
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     const next = args[i + 1];
@@ -117,17 +117,17 @@ function parseFlags(args: string[]): Flags {
     } else if (arg === '--base-path' && next) {
       flags.basePath = next;
       i += 1;
-    } else if (arg === '--kg-path' && next) {
-      flags.kgPath = next;
+    } else if (arg === '--digest-path' && next) {
+      flags.digestPath = next;
       i += 1;
     } else if (arg === '--content-glob' && next) {
-      flags.kgContentGlobs.push(next);
+      flags.digestContentGlobs.push(next);
       i += 1;
     } else if (arg === '--chunk-heading-depth' && next) {
       flags.chunkHeadingDepth = Number(next);
       i += 1;
-    } else if (arg === '--kg-model' && next) {
-      flags.kgModel = next;
+    } else if (arg === '--digest-model' && next) {
+      flags.digestModel = next;
       i += 1;
     } else if (arg === '--build-command' && next) {
       flags.buildCommand = next;

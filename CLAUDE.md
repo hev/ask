@@ -18,15 +18,16 @@ paths over its content collection:
   (SSE) with inline deep links to the doc sections it drew from.
 
 A committed, offline-built **ask digest** (`.hev-ask/digest.json`) gives the loop
-domain context and a glossary. The docs call it the digest; `kg` is its
-historical name and survives in code — the `ask kg` command group, `--kg-path`,
-`virtual:hev-ask/kg`. Don't rename those; don't say "knowledge graph" in new
-copy.
+domain context and a glossary. It was called the knowledge graph (`kg`) before
+0.1; the rename is complete — the CLI group is `ask digest`, the flag is
+`--digest-path`, the virtual module is `virtual:hev-ask/digest`. Don't
+reintroduce `kg` names or say "knowledge graph" in new code or copy (glossary
+aliases and old-URL redirects are the only places it remains on purpose).
 
 ## Repo layout
 
 ```
-packages/ui    # the package @hev/ask — integration, endpoint, search, kg/, CLI
+packages/ui    # the package @hev/ask — integration, endpoint, search, digest/, CLI
 playground     # minimal Astro site for fast local dev of the package
 site           # the public docs + showcase site (askhev.com); dogfoods @hev/ask
 ```
@@ -52,16 +53,17 @@ docs are also the search corpus, so doc edits are product edits.
 - **Corpus = configured content collection(s) only.** No crawler, no external
   index, no non-collection pages.
 - **Anchors come from `github-slugger`** (the one non-Astro dependency) to match
-  Astro's rendered `id`s byte-for-byte. `ask kg verify` is the CI gate that
+  Astro's rendered `id`s byte-for-byte. `ask digest verify` is the CI gate that
   catches drift — keep it green.
-- **The digest is committed JSON, hash-gated.** `ask kg build` skips the model
-  call when the content hash is unchanged. Regenerate and commit after content
-  changes. It's reviewable on purpose.
+- **The digest is committed JSON, hash-gated.** `ask digest build` skips the
+  model call when the content hash is unchanged. Regenerate and commit after
+  content changes. It's reviewable on purpose.
 - **Everything degrades, nothing hard-fails:** no key at runtime → keyword
-  mode; no key at build → keep committed KG and warn; no `digest.json` → empty KG.
+  mode; no key at build → keep committed digest and warn; no `digest.json` →
+  empty digest.
 - **The endpoint renders on demand** (`prerender: false`), so consumers need a
   server/hybrid adapter. A static-only build can't serve search.
-- **Default models:** loop = `claude-haiku-4-5`, KG build = `claude-opus-4-8`.
+- **Default models:** loop = `claude-haiku-4-5`, digest build = `claude-opus-4-8`.
 
 ## Public surface (don't break without a version bump + doc update)
 
@@ -72,9 +74,9 @@ docs are also the search corpus, so doc edits are product edits.
   `hev-ask:mode`.
 - `@hev/ask/endpoint` — `POST /api/ask`: keyword mode returns JSON, agentic
   mode streams SSE (`text/event-stream`). Contract in `api/endpoint.mdx`.
-- `ask` bin — read verbs, `mcp`, and `kg build` / `kg verify`; `hev-ask-kg` is
-  a deprecated alias. Flags in `api/cli.mdx`.
-- Virtual modules `virtual:hev-ask/config` and `virtual:hev-ask/kg`.
+- `ask` bin — read verbs, `mcp`, and `digest build` / `digest verify`. Flags in
+  `api/cli.mdx`.
+- Virtual modules `virtual:hev-ask/config` and `virtual:hev-ask/digest`.
 
 When any of these change, update the matching `site/src/content/docs/api/*.mdx`
 page in the same PR.
@@ -104,12 +106,12 @@ page in the same PR.
 ```sh
 pnpm install                          # workspace install
 pnpm --filter hev-ask-site dev       # docs site on :4334
-pnpm --filter hev-ask-site build     # build site (runs KG build if key present)
+pnpm --filter hev-ask-site build     # build site (runs digest build if key present)
 pnpm --filter hev-ask-site check     # astro check
 pnpm test                             # package unit tests
 pnpm typecheck                        # tsc across the workspace
-pnpm exec ask kg build               # (from a site dir) rebuild the KG
-pnpm exec ask kg verify              # (from a site dir) verify anchors
+pnpm exec ask digest build           # (from a site dir) rebuild the digest
+pnpm exec ask digest verify          # (from a site dir) verify anchors
 ```
 
 ## Before changing the package's public API
@@ -117,6 +119,6 @@ pnpm exec ask kg verify              # (from a site dir) verify anchors
 1. Update `packages/ui/src/types.ts` and the implementation.
 2. Update the matching `site/src/content/docs/api/*.mdx`.
 3. `pnpm test && pnpm typecheck && pnpm --filter hev-ask-site check`.
-4. If anchors or chunking changed, run `ask kg verify` on `site/`.
+4. If anchors or chunking changed, run `ask digest verify` on `site/`.
 5. Public/breaking changes need a version bump in `packages/ui/package.json`
    (see `README.md` for publishing notes).

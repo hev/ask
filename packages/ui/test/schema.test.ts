@@ -1,39 +1,39 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { EMPTY_KG, normalizeKnowledgeGraph } from '../src/kg/schema.ts';
+import { EMPTY_DIGEST, normalizeDigest } from '../src/digest/schema.ts';
 
-test('normalizeKnowledgeGraph returns an empty v2 graph for junk', () => {
-  assert.deepEqual(normalizeKnowledgeGraph(null), EMPTY_KG);
-  assert.deepEqual(normalizeKnowledgeGraph('nope'), EMPTY_KG);
-  assert.equal(EMPTY_KG.version, 2);
+test('normalizeDigest returns an empty v2 digest for junk', () => {
+  assert.deepEqual(normalizeDigest(null), EMPTY_DIGEST);
+  assert.deepEqual(normalizeDigest('nope'), EMPTY_DIGEST);
+  assert.equal(EMPTY_DIGEST.version, 2);
 });
 
-test('a v1 artifact degrades to a node-less v2 graph (keeps context + glossary)', () => {
+test('a v1 artifact degrades to a node-less v2 digest (keeps context + glossary)', () => {
   const v1 = {
     version: 1,
     contentHash: 'abc',
     context: 'Layer concepts.',
     glossary: [{ term: 'pipeline', aliases: ['stream'], definition: 'A flow.' }],
   };
-  const kg = normalizeKnowledgeGraph(v1);
-  assert.equal(kg.version, 2);
-  assert.equal(kg.context, 'Layer concepts.');
-  assert.equal(kg.glossary.length, 1);
-  assert.deepEqual(kg.nodes, []);
-  assert.equal(kg.overview, '');
-  assert.deepEqual(kg.suggestions, [], 'a graph without suggestions normalizes to none');
+  const digest = normalizeDigest(v1);
+  assert.equal(digest.version, 2);
+  assert.equal(digest.context, 'Layer concepts.');
+  assert.equal(digest.glossary.length, 1);
+  assert.deepEqual(digest.nodes, []);
+  assert.equal(digest.overview, '');
+  assert.deepEqual(digest.suggestions, [], 'a digest without suggestions normalizes to none');
 });
 
 test('suggestions normalize to non-empty strings only', () => {
-  const kg = normalizeKnowledgeGraph({
+  const digest = normalizeDigest({
     version: 2,
     suggestions: ['How does it work?', '', '  ', 42, null, 'What are the limits?'],
   });
-  assert.deepEqual(kg.suggestions, ['How does it work?', 'What are the limits?']);
+  assert.deepEqual(digest.suggestions, ['How does it work?', 'What are the limits?']);
 });
 
 test('v2 nodes round-trip and bad fields are coerced', () => {
-  const kg = normalizeKnowledgeGraph({
+  const digest = normalizeDigest({
     version: 2,
     nodes: [
       {
@@ -52,8 +52,8 @@ test('v2 nodes round-trip and bad fields are coerced', () => {
       { kind: 'section' }, // no id/url → dropped
     ],
   });
-  assert.equal(kg.nodes.length, 1);
-  const node = kg.nodes[0];
+  assert.equal(digest.nodes.length, 1);
+  const node = digest.nodes[0];
   assert.equal(node.mode, 'agent-primary', 'invalid mode coerced to default');
   assert.equal(node.facts[0].literal, '--max-workers');
   assert.equal(node.sources[0].anchor, 'autoscaling');

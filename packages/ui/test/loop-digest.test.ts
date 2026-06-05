@@ -4,8 +4,8 @@ import type { AgenticEvent, CallClaude, StreamClaude } from '../src/search/loop.
 import { runAgenticAnswerLoop, toolUse } from '../src/search/loop.ts';
 import type { StreamEvent } from '../src/llm.ts';
 import { chunkDocument, type Chunk } from '../src/search/chunk.ts';
-import { buildNodes } from '../src/kg/build.ts';
-import type { KnowledgeGraph } from '../src/kg/schema.ts';
+import { buildNodes } from '../src/digest/build.ts';
+import type { Digest } from '../src/digest/schema.ts';
 
 const config = {
   model: 'test-model',
@@ -41,7 +41,7 @@ function makeChunks(): Chunk[] {
   ];
 }
 
-function graph(): KnowledgeGraph {
+function digest(): Digest {
   return {
     version: 2,
     generatedAt: '',
@@ -67,11 +67,11 @@ async function drain(gen: AsyncGenerator<AgenticEvent>): Promise<AgenticEvent[]>
   return events;
 }
 
-test('graph loop opens a section, emits sources before tokens, then streams', async () => {
+test('digest loop opens a section, emits sources before tokens, then streams', async () => {
   const seenMessages: unknown[][] = [];
   const call: CallClaude = async (opts) => {
     seenMessages.push(opts.messages as unknown[]);
-    assert.equal((opts.tools ?? [])[0]?.name, 'open_section', 'graph path offers open_section, not search');
+    assert.equal((opts.tools ?? [])[0]?.name, 'open_section', 'digest path offers open_section, not search');
     if (seenMessages.length === 1) {
       return { stop_reason: 'tool_use', content: [toolUse('o1', 'open_section', { id: 'concepts#kubernetes-autoscaling' })] };
     }
@@ -83,7 +83,7 @@ test('graph loop opens a section, emits sources before tokens, then streams', as
       apiKey: 'k',
       query: 'how does scaling work?',
       chunks: makeChunks(),
-      kg: graph(),
+      digest: digest(),
       config,
       call,
       stream: streamText('Autoscaling scales workers. ', 'See [autoscaling](/docs/concepts#kubernetes-autoscaling).'),
@@ -108,7 +108,7 @@ test('graph loop opens a section, emits sources before tokens, then streams', as
   assert.ok(toolResultJson.includes('--max-workers'), 'open_section surfaces verbatim facts');
 });
 
-test('graph loop falls back to opening top matches when the model opens nothing', async () => {
+test('digest loop falls back to opening top matches when the model opens nothing', async () => {
   const call: CallClaude = async () => ({ stop_reason: 'end_turn', content: [{ type: 'text', text: 'no open' }] });
 
   const events = await drain(
@@ -116,7 +116,7 @@ test('graph loop falls back to opening top matches when the model opens nothing'
       apiKey: 'k',
       query: 'autoscaling workers',
       chunks: makeChunks(),
-      kg: graph(),
+      digest: digest(),
       config,
       call,
       stream: streamText('Grounded.'),
@@ -128,8 +128,8 @@ test('graph loop falls back to opening top matches when the model opens nothing'
   assert.ok(events.some((e) => e.type === 'search'), 'fallback emits an open event');
 });
 
-test('a node-less (v1) graph still uses the legacy search tool', async () => {
-  const v1: KnowledgeGraph = {
+test('a node-less (v1) digest still uses the legacy search tool', async () => {
+  const v1: Digest = {
     version: 2,
     generatedAt: '',
     contentHash: '',
@@ -145,7 +145,7 @@ test('a node-less (v1) graph still uses the legacy search tool', async () => {
     return { stop_reason: 'end_turn', content: [{ type: 'text', text: 'x' }] };
   };
   await drain(
-    runAgenticAnswerLoop({ apiKey: 'k', query: 'q', chunks: makeChunks(), kg: v1, config, call, stream: streamText('a') }),
+    runAgenticAnswerLoop({ apiKey: 'k', query: 'q', chunks: makeChunks(), digest: v1, config, call, stream: streamText('a') }),
   );
   assert.ok(tools.includes('search'), 'legacy path offers the search tool');
 });

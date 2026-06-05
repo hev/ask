@@ -123,22 +123,22 @@ spend**:
 You: build the hev ask digest
 
 Claude runs:
-  ask kg corpus       # emits the sections to distil
+  ask digest corpus       # emits the sections to distil
   …writes context/glossary/summaries/suggestions…
-  ask kg assemble     # writes .hev-ask/digest.json
+  ask digest assemble     # writes .hev-ask/digest.json
 ```
 
 **Or use the CLI** — for CI or outside Claude Code, one API call does the same:
 
 ```sh
 export ANTHROPIC_API_KEY=sk-ant-...
-pnpm exec ask kg build      # writes .hev-ask/digest.json
+pnpm exec ask digest build      # writes .hev-ask/digest.json
 ```
 
 Then verify and commit, however you built it:
 
 ```sh
-pnpm exec ask kg verify     # builds the site, checks every anchor resolves
+pnpm exec ask digest verify     # builds the site, checks every anchor resolves
 git add .hev-ask/digest.json
 ```
 
@@ -161,7 +161,7 @@ Enter returns keyword results.
 - **Agentic:** type a multi-word question (or click a suggested one) and press
   Enter; the footer shows the sub-queries the model ran, and a grounded answer
   streams in with inline deep links.
-- **Anchors:** `ask kg verify` exits non-zero if any chunk anchor doesn't exist
+- **Anchors:** `ask digest verify` exits non-zero if any chunk anchor doesn't exist
   in the built HTML — wire it into CI.
 
 From here, see the full [configuration options](/docs/api/configuration) or read

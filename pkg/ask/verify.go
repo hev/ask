@@ -75,12 +75,12 @@ func VerifyAnchors(options VerifyOptions) (VerifyResult, error) {
 }
 
 func verifyFidelity(options BuildOptions, chunks []Chunk) ([]DroppedLiteral, []string) {
-	graph, err := LoadGraph(resolveSitePath(options.SiteRoot, options.KGPath))
-	if err != nil || len(graph.Nodes) == 0 {
+	digest, err := LoadDigest(resolveSitePath(options.SiteRoot, options.DigestPath))
+	if err != nil || len(digest.Nodes) == 0 {
 		return []DroppedLiteral{}, []string{}
 	}
-	byID := map[string]KnowledgeNode{}
-	for _, node := range graph.Nodes {
+	byID := map[string]DigestNode{}
+	for _, node := range digest.Nodes {
 		byID[node.ID] = node
 	}
 	dropped := []DroppedLiteral{}

@@ -12,20 +12,20 @@ import (
 	askpkg "github.com/hev/ask/pkg/ask"
 )
 
-func writeTestKG(t *testing.T) string {
+func writeTestDigest(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	path := filepath.Join(dir, "kg.json")
+	path := filepath.Join(dir, "digest.json")
 	apiGroup := "API"
 	flagsHeading := "Flags"
-	graph := askpkg.KnowledgeGraph{
+	digest := askpkg.Digest{
 		Version: 2,
 		Context: "Docs orientation.",
 		Glossary: []askpkg.GlossaryEntry{
-			{Term: "Knowledge graph", Aliases: []string{"kg"}, Definition: "Committed docs graph."},
+			{Term: "Knowledge digest", Aliases: []string{"kg"}, Definition: "Committed docs digest."},
 		},
 		Overview: "## API\n- Flags - `api/cli#flags`",
-		Nodes: []askpkg.KnowledgeNode{
+		Nodes: []askpkg.DigestNode{
 			{
 				ID:      "api/cli#flags",
 				Kind:    "section",
@@ -33,14 +33,14 @@ func writeTestKG(t *testing.T) string {
 				Heading: &flagsHeading,
 				Group:   &apiGroup,
 				URL:     "/docs/api/cli#flags",
-				Summary: "Command flags configure graph paths.",
-				Facts:   []askpkg.Fact{{Kind: "flag", Literal: "--kg-path", ChunkID: "api/cli#flags"}},
+				Summary: "Command flags configure digest paths.",
+				Facts:   []askpkg.Fact{{Kind: "flag", Literal: "--digest-path", ChunkID: "api/cli#flags"}},
 				Mode:    "source-primary",
-				Terms:   []string{"flags", "graph"},
+				Terms:   []string{"flags", "digest"},
 			},
 		},
 	}
-	data, err := json.Marshal(graph)
+	data, err := json.Marshal(digest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,21 +51,21 @@ func writeTestKG(t *testing.T) string {
 }
 
 func TestRunGlossaryGetJSON(t *testing.T) {
-	path := writeTestKG(t)
+	path := writeTestDigest(t)
 	var stdout, stderr bytes.Buffer
-	err := run(context.Background(), []string{"--kg-path", path, "--json", "glossary", "get", "kg"}, &stdout, &stderr)
+	err := run(context.Background(), []string{"--digest-path", path, "--json", "glossary", "get", "kg"}, &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("run failed: %v\nstderr: %s", err, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), `"term": "Knowledge graph"`) {
+	if !strings.Contains(stdout.String(), `"term": "Knowledge digest"`) {
 		t.Fatalf("unexpected output: %s", stdout.String())
 	}
 }
 
 func TestRunSectionsListGroupJSON(t *testing.T) {
-	path := writeTestKG(t)
+	path := writeTestDigest(t)
 	var stdout, stderr bytes.Buffer
-	err := run(context.Background(), []string{"--kg-path", path, "--json", "sections", "list", "--group", "api"}, &stdout, &stderr)
+	err := run(context.Background(), []string{"--digest-path", path, "--json", "sections", "list", "--group", "api"}, &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("run failed: %v\nstderr: %s", err, stderr.String())
 	}
@@ -75,9 +75,9 @@ func TestRunSectionsListGroupJSON(t *testing.T) {
 }
 
 func TestRunSearchJSON(t *testing.T) {
-	path := writeTestKG(t)
+	path := writeTestDigest(t)
 	var stdout, stderr bytes.Buffer
-	err := run(context.Background(), []string{"--kg-path", path, "--json", "search", "kg", "path"}, &stdout, &stderr)
+	err := run(context.Background(), []string{"--digest-path", path, "--json", "search", "kg", "path"}, &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("run failed: %v\nstderr: %s", err, stderr.String())
 	}
@@ -86,7 +86,7 @@ func TestRunSearchJSON(t *testing.T) {
 	}
 }
 
-func TestRunKGCorpusAndAssemble(t *testing.T) {
+func TestRunDigestCorpusAndAssemble(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "src/content/docs"), 0o755); err != nil {
 		t.Fatal(err)
@@ -109,10 +109,10 @@ func TestRunKGCorpusAndAssemble(t *testing.T) {
 	}()
 
 	var stdout, stderr bytes.Buffer
-	if err := run(context.Background(), []string{"kg", "corpus"}, &stdout, &stderr); err != nil {
+	if err := run(context.Background(), []string{"digest", "corpus"}, &stdout, &stderr); err != nil {
 		t.Fatalf("corpus failed: %v\nstderr: %s", err, stderr.String())
 	}
-	input, err := os.ReadFile(filepath.Join(dir, ".hev-ask/kg-input.json"))
+	input, err := os.ReadFile(filepath.Join(dir, ".hev-ask/digest-input.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,23 +121,23 @@ func TestRunKGCorpusAndAssemble(t *testing.T) {
 	}
 
 	distill := `{"context":"ctx","glossary":[],"summaries":[{"id":"index#install","summary":"Install ask."}],"suggestions":["How do I install?"]}`
-	if err := os.WriteFile(filepath.Join(dir, ".hev-ask/kg-distill.json"), []byte(distill), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".hev-ask/digest-distill.json"), []byte(distill), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	stdout.Reset()
-	if err := run(context.Background(), []string{"kg", "assemble"}, &stdout, &stderr); err != nil {
+	if err := run(context.Background(), []string{"digest", "assemble"}, &stdout, &stderr); err != nil {
 		t.Fatalf("assemble failed: %v\nstderr: %s", err, stderr.String())
 	}
-	graph, err := askpkg.LoadGraph(filepath.Join(dir, ".hev-ask/digest.json"))
+	digest, err := askpkg.LoadDigest(filepath.Join(dir, ".hev-ask/digest.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(graph.Nodes) != 2 || graph.Nodes[1].Summary != "Install ask." {
-		t.Fatalf("unexpected graph: %#v", graph)
+	if len(digest.Nodes) != 2 || digest.Nodes[1].Summary != "Install ask." {
+		t.Fatalf("unexpected digest: %#v", digest)
 	}
 }
 
-func TestRunKGVerifySkipBuild(t *testing.T) {
+func TestRunDigestVerifySkipBuild(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "src/content/docs"), 0o755); err != nil {
 		t.Fatal(err)
@@ -151,12 +151,12 @@ func TestRunKGVerifySkipBuild(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "dist/docs/index.html"), []byte(`<h2 id="install">Install</h2>`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	graph := askpkg.AssembleGraph(askpkg.EmittedDistillation{
+	digest := askpkg.AssembleDigest(askpkg.EmittedDistillation{
 		Context:   "ctx",
 		Glossary:  []askpkg.GlossaryEntry{},
 		Summaries: []askpkg.SectionSummaryIn{{ID: "index#install", Summary: "Install ask."}},
 	}, mustCorpus(t, dir))
-	if err := askpkg.WriteGraph(filepath.Join(dir, ".hev-ask/digest.json"), graph); err != nil {
+	if err := askpkg.WriteDigest(filepath.Join(dir, ".hev-ask/digest.json"), digest); err != nil {
 		t.Fatal(err)
 	}
 
@@ -174,7 +174,7 @@ func TestRunKGVerifySkipBuild(t *testing.T) {
 	}()
 
 	var stdout, stderr bytes.Buffer
-	if err := run(context.Background(), []string{"kg", "verify", "--skip-build"}, &stdout, &stderr); err != nil {
+	if err := run(context.Background(), []string{"digest", "verify", "--skip-build"}, &stdout, &stderr); err != nil {
 		t.Fatalf("verify failed: %v\nstdout: %s\nstderr: %s", err, stdout.String(), stderr.String())
 	}
 	if !strings.Contains(stdout.String(), "verified 1 anchors") {
@@ -182,7 +182,7 @@ func TestRunKGVerifySkipBuild(t *testing.T) {
 	}
 }
 
-func TestRunKGBuildSkipsCurrentGraph(t *testing.T) {
+func TestRunDigestBuildSkipsCurrentGraph(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, "src/content/docs"), 0o755); err != nil {
 		t.Fatal(err)
@@ -191,8 +191,8 @@ func TestRunKGBuildSkipsCurrentGraph(t *testing.T) {
 		t.Fatal(err)
 	}
 	corpus := mustCorpus(t, dir)
-	graph := askpkg.AssembleGraph(askpkg.EmittedDistillation{Context: "ctx", Glossary: []askpkg.GlossaryEntry{}}, corpus)
-	if err := askpkg.WriteGraph(filepath.Join(dir, ".hev-ask/digest.json"), graph); err != nil {
+	digest := askpkg.AssembleDigest(askpkg.EmittedDistillation{Context: "ctx", Glossary: []askpkg.GlossaryEntry{}}, corpus)
+	if err := askpkg.WriteDigest(filepath.Join(dir, ".hev-ask/digest.json"), digest); err != nil {
 		t.Fatal(err)
 	}
 
@@ -210,10 +210,10 @@ func TestRunKGBuildSkipsCurrentGraph(t *testing.T) {
 	}()
 
 	var stdout, stderr bytes.Buffer
-	if err := run(context.Background(), []string{"kg", "build"}, &stdout, &stderr); err != nil {
+	if err := run(context.Background(), []string{"digest", "build"}, &stdout, &stderr); err != nil {
 		t.Fatalf("build failed: %v\nstdout: %s\nstderr: %s", err, stdout.String(), stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "kg:skipped") {
+	if !strings.Contains(stdout.String(), "digest:skipped") {
 		t.Fatalf("unexpected build output: %s", stdout.String())
 	}
 }

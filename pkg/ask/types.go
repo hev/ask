@@ -18,7 +18,7 @@ type SourceRef struct {
 	Anchor  *string `json:"anchor"`
 }
 
-type KnowledgeNode struct {
+type DigestNode struct {
 	ID      string      `json:"id"`
 	Kind    string      `json:"kind"`
 	Title   string      `json:"title"`
@@ -32,13 +32,13 @@ type KnowledgeNode struct {
 	Terms   []string    `json:"terms"`
 }
 
-type KnowledgeEdge struct {
+type DigestEdge struct {
 	Rel  string `json:"rel"`
 	From string `json:"from"`
 	To   string `json:"to"`
 }
 
-type KnowledgeGraph struct {
+type Digest struct {
 	Version     int             `json:"version"`
 	GeneratedAt string          `json:"generatedAt"`
 	ContentHash string          `json:"contentHash"`
@@ -46,8 +46,8 @@ type KnowledgeGraph struct {
 	Glossary    []GlossaryEntry `json:"glossary"`
 	Overview    string          `json:"overview"`
 	Suggestions []string        `json:"suggestions"`
-	Nodes       []KnowledgeNode `json:"nodes"`
-	Edges       []KnowledgeEdge `json:"edges"`
+	Nodes       []DigestNode    `json:"nodes"`
+	Edges       []DigestEdge    `json:"edges"`
 }
 
 type SectionSummary struct {

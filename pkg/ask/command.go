@@ -10,7 +10,7 @@ import (
 )
 
 type CommandOptions struct {
-	KGPath     string
+	DigestPath string
 	Endpoint   string
 	JSONOutput bool
 	MaxResults int
@@ -21,8 +21,8 @@ type CommandGroup struct {
 }
 
 func NewCommandGroup(options CommandOptions) CommandGroup {
-	if options.KGPath == "" {
-		options.KGPath = ".hev-ask/digest.json"
+	if options.DigestPath == "" {
+		options.DigestPath = ".hev-ask/digest.json"
 	}
 	if options.MaxResults <= 0 {
 		options.MaxResults = 8
@@ -69,7 +69,7 @@ func (group CommandGroup) Run(ctx context.Context, args []string, stdin io.Reade
 			return fmt.Errorf("mcp takes no arguments")
 		}
 		return ServeMCP(ctx, MCPOptions{
-			KGPath:     options.KGPath,
+			DigestPath: options.DigestPath,
 			Endpoint:   options.Endpoint,
 			MaxResults: options.MaxResults,
 		}, stdin, stdout)
@@ -231,22 +231,22 @@ func (group CommandGroup) listGlossary(ctx context.Context) ([]GlossaryEntry, er
 	if group.options.Endpoint != "" {
 		return NewEndpointClient(group.options.Endpoint).ListGlossary(ctx)
 	}
-	graph, err := LoadGraph(group.options.KGPath)
+	digest, err := LoadDigest(group.options.DigestPath)
 	if err != nil {
 		return nil, err
 	}
-	return ListGlossary(graph), nil
+	return ListGlossary(digest), nil
 }
 
 func (group CommandGroup) getGlossaryEntry(ctx context.Context, term string) (GlossaryEntry, error) {
 	if group.options.Endpoint != "" {
 		return NewEndpointClient(group.options.Endpoint).GetGlossaryEntry(ctx, term)
 	}
-	graph, err := LoadGraph(group.options.KGPath)
+	digest, err := LoadDigest(group.options.DigestPath)
 	if err != nil {
 		return GlossaryEntry{}, err
 	}
-	entry, ok := GetGlossaryEntry(graph, term)
+	entry, ok := GetGlossaryEntry(digest, term)
 	if !ok {
 		return GlossaryEntry{}, fmt.Errorf("no glossary entry matched %q", term)
 	}
@@ -257,24 +257,24 @@ func (group CommandGroup) listSections(ctx context.Context, groupName string) ([
 	if group.options.Endpoint != "" {
 		return NewEndpointClient(group.options.Endpoint).ListSections(ctx, groupName)
 	}
-	graph, err := LoadGraph(group.options.KGPath)
+	digest, err := LoadDigest(group.options.DigestPath)
 	if err != nil {
 		return nil, err
 	}
-	return ListSectionSummaries(graph, groupName), nil
+	return ListSectionSummaries(digest, groupName), nil
 }
 
-func (group CommandGroup) getSection(ctx context.Context, id string) (KnowledgeNode, error) {
+func (group CommandGroup) getSection(ctx context.Context, id string) (DigestNode, error) {
 	if group.options.Endpoint != "" {
 		return NewEndpointClient(group.options.Endpoint).GetSection(ctx, id)
 	}
-	graph, err := LoadGraph(group.options.KGPath)
+	digest, err := LoadDigest(group.options.DigestPath)
 	if err != nil {
-		return KnowledgeNode{}, err
+		return DigestNode{}, err
 	}
-	node, ok := GetSection(graph, id)
+	node, ok := GetSection(digest, id)
 	if !ok {
-		return KnowledgeNode{}, fmt.Errorf("no section matched %q", id)
+		return DigestNode{}, fmt.Errorf("no section matched %q", id)
 	}
 	return node, nil
 }
@@ -283,22 +283,22 @@ func (group CommandGroup) overview(ctx context.Context) (Overview, error) {
 	if group.options.Endpoint != "" {
 		return NewEndpointClient(group.options.Endpoint).Overview(ctx)
 	}
-	graph, err := LoadGraph(group.options.KGPath)
+	digest, err := LoadDigest(group.options.DigestPath)
 	if err != nil {
 		return Overview{}, err
 	}
-	return GetOverview(graph), nil
+	return GetOverview(digest), nil
 }
 
 func (group CommandGroup) search(ctx context.Context, query string) (KeywordResponse, error) {
 	if group.options.Endpoint != "" {
 		return NewEndpointClient(group.options.Endpoint).Search(ctx, query)
 	}
-	graph, err := LoadGraph(group.options.KGPath)
+	digest, err := LoadDigest(group.options.DigestPath)
 	if err != nil {
 		return KeywordResponse{}, err
 	}
-	return SearchGraph(graph, query, SearchOptions{MaxResults: group.options.MaxResults}), nil
+	return SearchDigest(digest, query, SearchOptions{MaxResults: group.options.MaxResults}), nil
 }
 
 func (group CommandGroup) writeOutput(stdout io.Writer, value any, human func(io.Writer)) error {
@@ -316,11 +316,11 @@ func parseCommandFlags(defaults CommandOptions, args []string) (CommandOptions, 
 	var rest []string
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
-		case "--kg-path":
+		case "--digest-path":
 			if i+1 >= len(args) {
-				return options, nil, fmt.Errorf("--kg-path requires a value")
+				return options, nil, fmt.Errorf("--digest-path requires a value")
 			}
-			options.KGPath = args[i+1]
+			options.DigestPath = args[i+1]
 			i++
 		case "--endpoint":
 			if i+1 >= len(args) {
@@ -366,7 +366,7 @@ func parseCommandValueFlag(args []string, name string) (string, []string, error)
 
 func writeCommandUsage(w io.Writer) {
 	fmt.Fprintln(w, `Usage:
-  <command> [--kg-path .hev-ask/digest.json] [--endpoint URL] [--json]
+  <command> [--digest-path .hev-ask/digest.json] [--endpoint URL] [--json]
 
 Commands:
   glossary list

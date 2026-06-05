@@ -13,7 +13,7 @@ import (
 )
 
 type options struct {
-	kgPath            string
+	digestPath        string
 	endpoint          string
 	jsonOutput        bool
 	maxResults        int
@@ -24,7 +24,7 @@ type options struct {
 	buildCommand      string
 	skipBuild         bool
 	strict            bool
-	kgModel           string
+	digestModel       string
 }
 
 func main() {
@@ -69,14 +69,14 @@ func run(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer)
 			return fmt.Errorf("answer requires a query")
 		}
 		return runAnswer(ctx, opts, strings.Join(rest, " "), stdout, jsonOut)
-	case "kg":
-		return runKG(ctx, opts, rest, stdout)
+	case "digest":
+		return runDigest(ctx, opts, rest, stdout)
 	case "mcp":
 		if len(rest) != 0 {
 			return fmt.Errorf("mcp takes no arguments")
 		}
 		return askpkg.ServeMCP(ctx, askpkg.MCPOptions{
-			KGPath:     opts.kgPath,
+			DigestPath: opts.digestPath,
 			Endpoint:   opts.endpoint,
 			MaxResults: opts.maxResults,
 		}, os.Stdin, stdout)
@@ -89,34 +89,64 @@ func run(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer)
 	}
 }
 
-func runKG(_ context.Context, opts options, args []string, stdout io.Writer) error {
+func runDigest(_ context.Context, opts options, args []string, stdout io.Writer) error {
 	if len(args) == 0 {
-		return fmt.Errorf("kg requires build, corpus, assemble, or verify")
+		return fmt.Errorf("digest requires build, corpus, assemble, verify, or status")
 	}
 	command := args[0]
 	rest := args[1:]
 	var err error
 	buildOptions := askpkg.BuildOptions{
-		SiteRoot:          ".",
-		Collections:       opts.collections,
-		BasePath:          opts.basePath,
-		KGPath:            opts.kgPath,
-		KGContentGlobs:    opts.contentGlobs,
-		ChunkHeadingDepth: opts.chunkHeadingDepth,
+		SiteRoot:           ".",
+		Collections:        opts.collections,
+		BasePath:           opts.basePath,
+		DigestPath:         opts.digestPath,
+		DigestContentGlobs: opts.contentGlobs,
+		ChunkHeadingDepth:  opts.chunkHeadingDepth,
 	}
 
 	switch command {
 	case "corpus":
-		outPath, rest, err := parseValueFlagDefault(rest, "--out", ".hev-ask/kg-input.json")
+		outPath, rest, err := parseValueFlagDefault(rest, "--out", ".hev-ask/digest-input.json")
 		if err != nil {
 			return err
+		}
+		shardsDir, rest, err := parseValueFlag(rest, "--shards-dir")
+		if err != nil {
+			return err
+		}
+		shardBytesRaw, rest, err := parseValueFlag(rest, "--shard-bytes")
+		if err != nil {
+			return err
+		}
+		shardBytes := 0
+		if shardBytesRaw != "" {
+			if _, err := fmt.Sscanf(shardBytesRaw, "%d", &shardBytes); err != nil || shardBytes <= 0 {
+				return fmt.Errorf("--shard-bytes must be a positive integer")
+			}
 		}
 		buildOptions, rest, err = parseBuildFlags(buildOptions, rest)
 		if err != nil {
 			return err
 		}
 		if len(rest) != 0 {
-			return fmt.Errorf("kg corpus got unexpected arguments: %s", strings.Join(rest, " "))
+			return fmt.Errorf("digest corpus got unexpected arguments: %s", strings.Join(rest, " "))
+		}
+		if shardsDir != "" {
+			result, err := askpkg.WriteCorpusShards(buildOptions, shardsDir, shardBytes)
+			if err != nil {
+				return err
+			}
+			state := "needs-rebuild"
+			if result.UpToDate {
+				state = "up-to-date"
+			}
+			fmt.Fprintf(stdout, "[hev-ask] digest:corpus %s (%d sections, %d shards, %d pending, %s)\n",
+				result.Dir, result.Sections, result.Shards, result.Pending, state)
+			return nil
+		}
+		if shardBytesRaw != "" {
+			return fmt.Errorf("--shard-bytes requires --shards-dir")
 		}
 		path, upToDate, sections, err := askpkg.WriteCorpusInput(buildOptions, outPath)
 		if err != nil {
@@ -126,10 +156,14 @@ func runKG(_ context.Context, opts options, args []string, stdout io.Writer) err
 		if upToDate {
 			state = "up-to-date"
 		}
-		fmt.Fprintf(stdout, "[hev-ask] kg:corpus %s (%d sections, %s)\n", path, sections, state)
+		fmt.Fprintf(stdout, "[hev-ask] digest:corpus %s (%d sections, %s)\n", path, sections, state)
 		return nil
 	case "assemble":
-		inputPath, rest, err := parseValueFlagDefault(rest, "--input", ".hev-ask/kg-distill.json")
+		inputPath, rest, err := parseValueFlagDefault(rest, "--input", ".hev-ask/digest-distill.json")
+		if err != nil {
+			return err
+		}
+		inputDir, rest, err := parseValueFlag(rest, "--input-dir")
 		if err != nil {
 			return err
 		}
@@ -138,34 +172,90 @@ func runKG(_ context.Context, opts options, args []string, stdout io.Writer) err
 			return err
 		}
 		if len(rest) != 0 {
-			return fmt.Errorf("kg assemble got unexpected arguments: %s", strings.Join(rest, " "))
+			return fmt.Errorf("digest assemble got unexpected arguments: %s", strings.Join(rest, " "))
+		}
+		if inputDir != "" {
+			result, err := askpkg.AssembleFromShards(buildOptions, inputDir)
+			if err != nil {
+				return err
+			}
+			if len(result.SkippedShards) > 0 {
+				sample := result.SkippedShards
+				suffix := ""
+				if len(sample) > 8 {
+					sample = sample[:8]
+					suffix = ", …"
+				}
+				fmt.Fprintf(stdout, "[hev-ask] %d shard(s) not distilled (pending or stale): %s%s\n",
+					len(result.SkippedShards), strings.Join(sample, ", "), suffix)
+			}
+			if len(result.Missing) > 0 {
+				fmt.Fprintf(stdout, "[hev-ask] %d section(s) fell back to excerpts — distil the remaining shards and re-assemble\n", len(result.Missing))
+			}
+			if result.GlossaryDropped > 0 {
+				fmt.Fprintf(stdout, "[hev-ask] glossary capped: %d entr(ies) dropped\n", result.GlossaryDropped)
+			}
+			fmt.Fprintf(stdout, "[hev-ask] digest:%s %s (%d chunks from %d shards)\n", result.Status, result.Path, result.Chunks, result.Shards)
+			return nil
 		}
 		result, err := askpkg.AssembleFromDistillation(buildOptions, inputPath)
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(stdout, "[hev-ask] kg:%s %s (%d chunks)\n", result.Status, result.Path, result.Chunks)
+		fmt.Fprintf(stdout, "[hev-ask] digest:%s %s (%d chunks)\n", result.Status, result.Path, result.Chunks)
+		return nil
+	case "status":
+		shardsDir, rest, err := parseValueFlagDefault(rest, "--shards-dir", ".hev-ask/shards")
+		if err != nil {
+			return err
+		}
+		if len(rest) != 0 {
+			return fmt.Errorf("digest status got unexpected arguments: %s", strings.Join(rest, " "))
+		}
+		result, err := askpkg.ShardStatus(".", shardsDir)
+		if err != nil {
+			return err
+		}
+		counts := map[askpkg.ShardState]int{}
+		for _, shard := range result.Shards {
+			counts[shard.State]++
+		}
+		globalState := "missing"
+		if result.HasGlobal {
+			globalState = "present"
+		}
+		upToDate := ""
+		if result.UpToDate {
+			upToDate = "; digest up-to-date"
+		}
+		fmt.Fprintf(stdout, "[hev-ask] digest:status %s — %d shards: %d distilled, %d pending, %d stale; global.json %s%s\n",
+			result.Dir, len(result.Shards), counts[askpkg.ShardDistilled], counts[askpkg.ShardPending], counts[askpkg.ShardStale], globalState, upToDate)
+		for _, shard := range result.Shards {
+			if shard.State != askpkg.ShardDistilled {
+				fmt.Fprintf(stdout, "  - %s: %s (%d sections, %dKB)\n", shard.State, shard.ID, shard.Sections, shard.Bytes/1024)
+			}
+		}
 		return nil
 	case "build":
 		buildOptions, rest, err = parseBuildFlags(buildOptions, rest)
 		if err != nil {
 			return err
 		}
-		kgModel, rest, err := parseValueFlagDefault(rest, "--kg-model", opts.kgModel)
+		digestModel, rest, err := parseValueFlagDefault(rest, "--digest-model", opts.digestModel)
 		if err != nil {
 			return err
 		}
 		if len(rest) != 0 {
-			return fmt.Errorf("kg build got unexpected arguments: %s", strings.Join(rest, " "))
+			return fmt.Errorf("digest build got unexpected arguments: %s", strings.Join(rest, " "))
 		}
-		result, err := askpkg.BuildKnowledgeGraph(askpkg.BuildKnowledgeGraphOptions{
+		result, err := askpkg.BuildDigest(askpkg.BuildDigestOptions{
 			BuildOptions: buildOptions,
-			KGModel:      kgModel,
+			DigestModel:  digestModel,
 		})
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(stdout, "[hev-ask] kg:%s %s (%d chunks)\n", result.Status, result.Path, result.Chunks)
+		fmt.Fprintf(stdout, "[hev-ask] digest:%s %s (%d chunks)\n", result.Status, result.Path, result.Chunks)
 		return nil
 	case "verify":
 		buildOptions, rest, err = parseBuildFlags(buildOptions, rest)
@@ -182,7 +272,7 @@ func runKG(_ context.Context, opts options, args []string, stdout io.Writer) err
 			return err
 		}
 		if len(rest) != 0 {
-			return fmt.Errorf("kg verify got unexpected arguments: %s", strings.Join(rest, " "))
+			return fmt.Errorf("digest verify got unexpected arguments: %s", strings.Join(rest, " "))
 		}
 		result, err := askpkg.VerifyAnchors(verifyOptions)
 		if err != nil {
@@ -190,7 +280,7 @@ func runKG(_ context.Context, opts options, args []string, stdout io.Writer) err
 		}
 		return writeVerifyResult(stdout, result, opts.strict)
 	default:
-		return fmt.Errorf("unknown kg command %q", command)
+		return fmt.Errorf("unknown digest command %q", command)
 	}
 }
 
@@ -214,11 +304,11 @@ func runGlossary(ctx context.Context, opts options, args []string, stdout io.Wri
 				writeGlossaryList(w, terms)
 			})
 		}
-		graph, err := askpkg.LoadGraph(opts.kgPath)
+		digest, err := askpkg.LoadDigest(opts.digestPath)
 		if err != nil {
 			return err
 		}
-		terms := askpkg.ListGlossary(graph)
+		terms := askpkg.ListGlossary(digest)
 		return writeOutput(stdout, jsonOut, map[string]any{"terms": terms}, func(w io.Writer) {
 			writeGlossaryList(w, terms)
 		})
@@ -234,11 +324,11 @@ func runGlossary(ctx context.Context, opts options, args []string, stdout io.Wri
 			}
 			return writeOutput(stdout, jsonOut, entry, func(w io.Writer) { writeGlossaryEntry(w, entry) })
 		}
-		graph, err := askpkg.LoadGraph(opts.kgPath)
+		digest, err := askpkg.LoadDigest(opts.digestPath)
 		if err != nil {
 			return err
 		}
-		entry, ok := askpkg.GetGlossaryEntry(graph, term)
+		entry, ok := askpkg.GetGlossaryEntry(digest, term)
 		if !ok {
 			return fmt.Errorf("no glossary entry matched %q", term)
 		}
@@ -273,11 +363,11 @@ func runSections(ctx context.Context, opts options, args []string, stdout io.Wri
 			writeSections(w, sections)
 		})
 	}
-	graph, err := askpkg.LoadGraph(opts.kgPath)
+	digest, err := askpkg.LoadDigest(opts.digestPath)
 	if err != nil {
 		return err
 	}
-	sections := askpkg.ListSectionSummaries(graph, group)
+	sections := askpkg.ListSectionSummaries(digest, group)
 	return writeOutput(stdout, jsonOut, map[string]any{"sections": sections}, func(w io.Writer) {
 		writeSections(w, sections)
 	})
@@ -298,11 +388,11 @@ func runSection(ctx context.Context, opts options, args []string, stdout io.Writ
 		}
 		return writeOutput(stdout, jsonOut, node, func(w io.Writer) { writeSection(w, node) })
 	}
-	graph, err := askpkg.LoadGraph(opts.kgPath)
+	digest, err := askpkg.LoadDigest(opts.digestPath)
 	if err != nil {
 		return err
 	}
-	node, ok := askpkg.GetSection(graph, id)
+	node, ok := askpkg.GetSection(digest, id)
 	if !ok {
 		return fmt.Errorf("no section matched %q", id)
 	}
@@ -317,11 +407,11 @@ func runOverview(ctx context.Context, opts options, stdout io.Writer, jsonOut bo
 		}
 		return writeOutput(stdout, jsonOut, overview, func(w io.Writer) { writeOverview(w, overview) })
 	}
-	graph, err := askpkg.LoadGraph(opts.kgPath)
+	digest, err := askpkg.LoadDigest(opts.digestPath)
 	if err != nil {
 		return err
 	}
-	overview := askpkg.GetOverview(graph)
+	overview := askpkg.GetOverview(digest)
 	return writeOutput(stdout, jsonOut, overview, func(w io.Writer) { writeOverview(w, overview) })
 }
 
@@ -333,11 +423,11 @@ func runSearch(ctx context.Context, opts options, query string, stdout io.Writer
 		}
 		return writeOutput(stdout, jsonOut, response, func(w io.Writer) { writeSearchResults(w, response) })
 	}
-	graph, err := askpkg.LoadGraph(opts.kgPath)
+	digest, err := askpkg.LoadDigest(opts.digestPath)
 	if err != nil {
 		return err
 	}
-	response := askpkg.SearchGraph(graph, query, askpkg.SearchOptions{MaxResults: opts.maxResults})
+	response := askpkg.SearchDigest(digest, query, askpkg.SearchOptions{MaxResults: opts.maxResults})
 	return writeOutput(stdout, jsonOut, response, func(w io.Writer) { writeSearchResults(w, response) })
 }
 
@@ -375,16 +465,16 @@ func runAnswer(ctx context.Context, opts options, query string, stdout io.Writer
 }
 
 func parseGlobalFlags(args []string) (options, []string, error) {
-	opts := options{kgPath: ".hev-ask/digest.json", maxResults: 8, basePath: "/docs/", chunkHeadingDepth: 3}
+	opts := options{digestPath: ".hev-ask/digest.json", maxResults: 8, basePath: "/docs/", chunkHeadingDepth: 3}
 	var rest []string
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		switch arg {
-		case "--kg-path":
+		case "--digest-path":
 			if i+1 >= len(args) {
-				return opts, nil, fmt.Errorf("--kg-path requires a value")
+				return opts, nil, fmt.Errorf("--digest-path requires a value")
 			}
-			opts.kgPath = args[i+1]
+			opts.digestPath = args[i+1]
 			i++
 		case "--endpoint":
 			if i+1 >= len(args) {
@@ -438,11 +528,11 @@ func parseGlobalFlags(args []string) (options, []string, error) {
 			}
 			opts.buildCommand = args[i+1]
 			i++
-		case "--kg-model":
+		case "--digest-model":
 			if i+1 >= len(args) {
-				return opts, nil, fmt.Errorf("--kg-model requires a value")
+				return opts, nil, fmt.Errorf("--digest-model requires a value")
 			}
-			opts.kgModel = args[i+1]
+			opts.digestModel = args[i+1]
 			i++
 		case "--skip-build":
 			opts.skipBuild = true
@@ -511,17 +601,17 @@ func parseBuildFlags(options askpkg.BuildOptions, args []string) (askpkg.BuildOp
 			}
 			options.BasePath = args[i+1]
 			i++
-		case "--kg-path":
+		case "--digest-path":
 			if i+1 >= len(args) {
-				return options, nil, fmt.Errorf("--kg-path requires a value")
+				return options, nil, fmt.Errorf("--digest-path requires a value")
 			}
-			options.KGPath = args[i+1]
+			options.DigestPath = args[i+1]
 			i++
 		case "--content-glob":
 			if i+1 >= len(args) {
 				return options, nil, fmt.Errorf("--content-glob requires a value")
 			}
-			options.KGContentGlobs = append(options.KGContentGlobs, args[i+1])
+			options.DigestContentGlobs = append(options.DigestContentGlobs, args[i+1])
 			i++
 		case "--chunk-heading-depth":
 			if i+1 >= len(args) {
@@ -533,9 +623,8 @@ func parseBuildFlags(options askpkg.BuildOptions, args []string) (askpkg.BuildOp
 			}
 			options.ChunkHeadingDepth = value
 			i++
-		case "--kg-model":
-			// Parsed by kg build after common build flags.
-			rest = append(rest, args[i])
+		case "--digest-model": // parsed by digest build after common build flags
+			rest = append(rest, "--digest-model")
 		default:
 			rest = append(rest, args[i])
 		}
@@ -598,7 +687,7 @@ func writeSections(w io.Writer, sections []askpkg.SectionSummary) {
 	}
 }
 
-func writeSection(w io.Writer, node askpkg.KnowledgeNode) {
+func writeSection(w io.Writer, node askpkg.DigestNode) {
 	fmt.Fprintf(w, "%s\n", node.Title)
 	if node.Heading != nil && *node.Heading != "" {
 		fmt.Fprintf(w, "Heading: %s\n", *node.Heading)
@@ -648,13 +737,13 @@ func writeVerifyResult(w io.Writer, result askpkg.VerifyResult, strict bool) err
 			more = fmt.Sprintf(", …(+%d)", len(sample)-5)
 			sample = sample[:5]
 		}
-		fmt.Fprintf(w, "[hev-ask] %d section(s) missing from the graph: %s%s — run `ask kg build`.\n", len(result.Uncovered), strings.Join(sample, ", "), more)
+		fmt.Fprintf(w, "[hev-ask] %d section(s) missing from the digest: %s%s — run `ask digest build`.\n", len(result.Uncovered), strings.Join(sample, ", "), more)
 		if strict {
 			failed = true
 		}
 	}
 	if len(result.Dropped) > 0 {
-		fmt.Fprintf(w, "[hev-ask] %d source literal(s) dropped from agent-primary nodes — run `ask kg build`:\n", len(result.Dropped))
+		fmt.Fprintf(w, "[hev-ask] %d source literal(s) dropped from agent-primary nodes — run `ask digest build`:\n", len(result.Dropped))
 		limit := len(result.Dropped)
 		if limit > 8 {
 			limit = 8
@@ -679,13 +768,14 @@ func writeVerifyResult(w io.Writer, result askpkg.VerifyResult, strict bool) err
 
 func usage(w io.Writer) {
 	fmt.Fprintln(w, `Usage:
-  ask [--kg-path .hev-ask/digest.json] [--endpoint URL] [--json] <command>
+  ask [--digest-path .hev-ask/digest.json] [--endpoint URL] [--json] <command>
 
 Commands:
-  kg build [--kg-model model]
-  kg corpus [--out path]
-  kg assemble [--input path]
-  kg verify [--skip-build] [--strict]
+  digest build [--digest-model model]
+  digest corpus [--out path | --shards-dir dir [--shard-bytes n]]
+  digest assemble [--input path | --input-dir dir]
+  digest verify [--skip-build] [--strict]
+  digest status [--shards-dir dir]
   glossary list
   glossary get <term>
   sections list [--group GROUP]

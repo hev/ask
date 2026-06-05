@@ -1,13 +1,13 @@
 // Build-time vs runtime: where each part of hev ask does its work.
 export const askMapDiagram = String.raw`       BUILD TIME (CLI / Skill)                RUNTIME (edge)
   ╔═════════════════════════════════╗    ╔════════════════════════════════════╗░
-  ║  ask kg build                   ║    ║  /api/ask   (prerender: false)     ║░
+  ║  ask digest build               ║    ║  /api/ask   (prerender: false)     ║░
   ║                                 ║    ║                                    ║░
   ║  glob src/content/docs/**       ║    ║  ┌─── keyword mode · no key ────┐  ║░
   ║   → chunk by heading            ║    ║  │ prefilter chunks + glossary  │  ║░
   ║   → sha256 content hash         ║    ║  └──────────────────────────────┘  ║░
   ║   → Opus 4.8 builds the digest  ║    ║  ┌──── agentic loop · Haiku ────┐  ║░
-  ║   → write .hev-ask/digest.json  ║    ║  │ system: kg.context (cached)  │  ║░
+  ║   → write .hev-ask/digest.json  ║    ║  │ system: digest ctx (cached)  │  ║░
   ║                                 ║    ║  │ tool: search(q)  ≤ 4 times   │  ║░
   ╚═════════════════════════════════╝    ║  │ then stream answer, no tools │  ║░
    ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    ║  │ grounded in /page#anchor     │  ║░
@@ -15,7 +15,7 @@ export const askMapDiagram = String.raw`       BUILD TIME (CLI / Skill)         
      .hev-ask/digest.json (committed)    ╚════════════════════════════════════╝░
            │                              ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
            ▼
-     virtual:hev-ask/kg  ──── bundled into /api/ask ────▶`;
+     virtual:hev-ask/digest  ──── bundled into /api/ask ────▶`;
 
 // What the reader experiences at the overlay.
 export const askFlowDiagram = String.raw`           type a query                    press Enter

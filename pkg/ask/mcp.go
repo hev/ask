@@ -13,7 +13,7 @@ import (
 const mcpProtocolVersion = "2025-06-18"
 
 type MCPOptions struct {
-	KGPath     string
+	DigestPath string
 	Endpoint   string
 	MaxResults int
 }
@@ -53,8 +53,8 @@ type mcpServer struct {
 }
 
 func ServeMCP(ctx context.Context, options MCPOptions, in io.Reader, out io.Writer) error {
-	if options.KGPath == "" {
-		options.KGPath = ".hev-ask/digest.json"
+	if options.DigestPath == "" {
+		options.DigestPath = ".hev-ask/digest.json"
 	}
 	if options.MaxResults <= 0 {
 		options.MaxResults = 8
@@ -320,22 +320,22 @@ func (server mcpServer) listGlossary(ctx context.Context) ([]GlossaryEntry, erro
 	if server.options.Endpoint != "" {
 		return NewEndpointClient(server.options.Endpoint).ListGlossary(ctx)
 	}
-	graph, err := LoadGraph(server.options.KGPath)
+	digest, err := LoadDigest(server.options.DigestPath)
 	if err != nil {
 		return nil, err
 	}
-	return ListGlossary(graph), nil
+	return ListGlossary(digest), nil
 }
 
 func (server mcpServer) getGlossaryEntry(ctx context.Context, term string) (GlossaryEntry, error) {
 	if server.options.Endpoint != "" {
 		return NewEndpointClient(server.options.Endpoint).GetGlossaryEntry(ctx, term)
 	}
-	graph, err := LoadGraph(server.options.KGPath)
+	digest, err := LoadDigest(server.options.DigestPath)
 	if err != nil {
 		return GlossaryEntry{}, err
 	}
-	entry, ok := GetGlossaryEntry(graph, term)
+	entry, ok := GetGlossaryEntry(digest, term)
 	if !ok {
 		return GlossaryEntry{}, fmt.Errorf("no glossary entry matched %q", term)
 	}
@@ -346,24 +346,24 @@ func (server mcpServer) listSections(ctx context.Context, group string) ([]Secti
 	if server.options.Endpoint != "" {
 		return NewEndpointClient(server.options.Endpoint).ListSections(ctx, group)
 	}
-	graph, err := LoadGraph(server.options.KGPath)
+	digest, err := LoadDigest(server.options.DigestPath)
 	if err != nil {
 		return nil, err
 	}
-	return ListSectionSummaries(graph, group), nil
+	return ListSectionSummaries(digest, group), nil
 }
 
-func (server mcpServer) getSection(ctx context.Context, id string) (KnowledgeNode, error) {
+func (server mcpServer) getSection(ctx context.Context, id string) (DigestNode, error) {
 	if server.options.Endpoint != "" {
 		return NewEndpointClient(server.options.Endpoint).GetSection(ctx, id)
 	}
-	graph, err := LoadGraph(server.options.KGPath)
+	digest, err := LoadDigest(server.options.DigestPath)
 	if err != nil {
-		return KnowledgeNode{}, err
+		return DigestNode{}, err
 	}
-	node, ok := GetSection(graph, id)
+	node, ok := GetSection(digest, id)
 	if !ok {
-		return KnowledgeNode{}, fmt.Errorf("no section matched %q", id)
+		return DigestNode{}, fmt.Errorf("no section matched %q", id)
 	}
 	return node, nil
 }
@@ -372,25 +372,25 @@ func (server mcpServer) overview(ctx context.Context) (Overview, error) {
 	if server.options.Endpoint != "" {
 		return NewEndpointClient(server.options.Endpoint).Overview(ctx)
 	}
-	graph, err := LoadGraph(server.options.KGPath)
+	digest, err := LoadDigest(server.options.DigestPath)
 	if err != nil {
 		return Overview{}, err
 	}
-	return GetOverview(graph), nil
+	return GetOverview(digest), nil
 }
 
 func (server mcpServer) search(ctx context.Context, query string, maxResults int) (KeywordResponse, error) {
 	if server.options.Endpoint != "" {
 		return NewEndpointClient(server.options.Endpoint).Search(ctx, query)
 	}
-	graph, err := LoadGraph(server.options.KGPath)
+	digest, err := LoadDigest(server.options.DigestPath)
 	if err != nil {
 		return KeywordResponse{}, err
 	}
 	if maxResults <= 0 {
 		maxResults = server.options.MaxResults
 	}
-	return SearchGraph(graph, query, SearchOptions{MaxResults: maxResults}), nil
+	return SearchDigest(digest, query, SearchOptions{MaxResults: maxResults}), nil
 }
 
 func (server mcpServer) answer(ctx context.Context, query string) (any, string, error) {

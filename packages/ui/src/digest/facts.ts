@@ -14,7 +14,7 @@ const MAX_LITERAL = 400;
 /**
  * Extracts byte-verbatim literals (code, flags, identifiers, versions) from a
  * section's raw markdown. These are the answer-critical strings the prose
- * tokenizer destroys; they are carried into the KG node unchanged so the agent
+ * tokenizer destroys; they are carried into the digest node unchanged so the agent
  * can quote them exactly without re-reading the source.
  *
  * Fully deterministic — the model never authors or edits a fact.

@@ -6,39 +6,39 @@ import (
 	"os"
 )
 
-func LoadGraph(path string) (KnowledgeGraph, error) {
+func LoadDigest(path string) (Digest, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return KnowledgeGraph{}, fmt.Errorf("read digest %q: %w", path, err)
+		return Digest{}, fmt.Errorf("read digest %q: %w", path, err)
 	}
-	var graph KnowledgeGraph
-	if err := json.Unmarshal(data, &graph); err != nil {
-		return KnowledgeGraph{}, fmt.Errorf("parse digest %q: %w", path, err)
+	var digest Digest
+	if err := json.Unmarshal(data, &digest); err != nil {
+		return Digest{}, fmt.Errorf("parse digest %q: %w", path, err)
 	}
-	normalizeGraph(&graph)
-	return graph, nil
+	normalizeDigest(&digest)
+	return digest, nil
 }
 
-func normalizeGraph(graph *KnowledgeGraph) {
-	if graph.Glossary == nil {
-		graph.Glossary = []GlossaryEntry{}
+func normalizeDigest(digest *Digest) {
+	if digest.Glossary == nil {
+		digest.Glossary = []GlossaryEntry{}
 	}
-	if graph.Suggestions == nil {
-		graph.Suggestions = []string{}
+	if digest.Suggestions == nil {
+		digest.Suggestions = []string{}
 	}
-	if graph.Nodes == nil {
-		graph.Nodes = []KnowledgeNode{}
+	if digest.Nodes == nil {
+		digest.Nodes = []DigestNode{}
 	}
-	if graph.Edges == nil {
-		graph.Edges = []KnowledgeEdge{}
+	if digest.Edges == nil {
+		digest.Edges = []DigestEdge{}
 	}
-	for i := range graph.Glossary {
-		if graph.Glossary[i].Aliases == nil {
-			graph.Glossary[i].Aliases = []string{}
+	for i := range digest.Glossary {
+		if digest.Glossary[i].Aliases == nil {
+			digest.Glossary[i].Aliases = []string{}
 		}
 	}
-	for i := range graph.Nodes {
-		node := &graph.Nodes[i]
+	for i := range digest.Nodes {
+		node := &digest.Nodes[i]
 		if node.Kind == "" {
 			node.Kind = "section"
 		}

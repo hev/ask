@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { classifyMode, distinctiveTokens, extractFacts } from '../src/kg/facts.ts';
+import { classifyMode, distinctiveTokens, extractFacts } from '../src/digest/facts.ts';
 
 const raw = [
   '## Install',

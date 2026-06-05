@@ -60,10 +60,10 @@ func (client EndpointClient) ListSections(ctx context.Context, group string) ([]
 	return payload.Sections, nil
 }
 
-func (client EndpointClient) GetSection(ctx context.Context, id string) (KnowledgeNode, error) {
-	var node KnowledgeNode
+func (client EndpointClient) GetSection(ctx context.Context, id string) (DigestNode, error) {
+	var node DigestNode
 	if err := client.getJSON(ctx, "sections/"+url.PathEscape(id), &node); err != nil {
-		return KnowledgeNode{}, err
+		return DigestNode{}, err
 	}
 	return node, nil
 }

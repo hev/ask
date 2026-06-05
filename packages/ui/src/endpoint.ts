@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import config from 'virtual:hev-ask/config';
-import kg from 'virtual:hev-ask/kg';
+import digest from 'virtual:hev-ask/digest';
 import {
   decodePathValue,
   getGlossaryEntry,
@@ -8,7 +8,7 @@ import {
   getSection,
   listGlossary,
   listSectionSummaries,
-} from './kg/read.ts';
+} from './digest/read.ts';
 import { makeTelemetry, telemetryFromEnv } from './observability';
 import { hashableChunkText } from './search/chunk';
 import { buildIndex, prefilter, type Candidate, type Chunk } from './search/index';
@@ -49,10 +49,10 @@ function resolveTelemetry(locals: unknown) {
 }
 
 // The overlay fetches suggested questions from the base route. Sub-routes expose
-// keyless reads over the committed graph for CLI, MCP, and generated clients.
+// keyless reads over the committed digest for CLI, MCP, and generated clients.
 export const GET: APIRoute = ({ params, request }) => {
   const resource = resourceSegments(params.resource);
-  if (!resource.length) return json({ suggestions: kg.suggestions ?? [], model: config.model });
+  if (!resource.length) return json({ suggestions: digest.suggestions ?? [], model: config.model });
   return readResource(resource, request);
 };
 
@@ -79,10 +79,10 @@ export const POST: APIRoute = async ({ request, locals, params }) => {
   const keywordCandidates = prefilter(
     chunks,
     query,
-    kg.glossary,
+    digest.glossary,
     Math.max(config.maxResults, config.candidatePerSearch),
     config.perDocCap,
-    kg.nodes,
+    digest.nodes,
   );
 
   const apiKey = resolveApiKey(locals);
@@ -119,7 +119,7 @@ export const POST: APIRoute = async ({ request, locals, params }) => {
           apiKey,
           query: query as string,
           chunks,
-          kg,
+          digest,
           telemetry: resolveTelemetry(locals),
           config: {
             model: config.model,
@@ -159,21 +159,21 @@ function readResource(resource: string[], request: Request): Response {
   const root = decodePathValue(rawRoot).trim();
 
   if (root === 'glossary') {
-    if (!rest.length) return json({ terms: listGlossary(kg) });
-    const entry = getGlossaryEntry(kg, rest.join('/'));
+    if (!rest.length) return json({ terms: listGlossary(digest) });
+    const entry = getGlossaryEntry(digest, rest.join('/'));
     return entry ? json(entry) : notFound('No glossary entry matched that term or alias.');
   }
 
   if (root === 'sections') {
     if (!rest.length) {
       const group = new URL(request.url).searchParams.get('group');
-      return json({ sections: listSectionSummaries(kg, group) });
+      return json({ sections: listSectionSummaries(digest, group) });
     }
-    const node = getSection(kg, rest.join('/'));
+    const node = getSection(digest, rest.join('/'));
     return node ? json(node) : notFound('No section matched that id.');
   }
 
-  if (root === 'overview' && rest.length === 0) return json(getOverview(kg));
+  if (root === 'overview' && rest.length === 0) return json(getOverview(digest));
 
   return notFound();
 }
@@ -221,11 +221,11 @@ function chunkToResult(chunk: Chunk, snippet: string): KeywordResult {
 }
 
 async function warnIfStale(chunks: Chunk[]) {
-  if (staleWarningIssued || !kg.contentHash || typeof crypto === 'undefined' || !crypto.subtle) return;
+  if (staleWarningIssued || !digest.contentHash || typeof crypto === 'undefined' || !crypto.subtle) return;
   staleWarningIssued = true;
   const hash = await sha256Hex(hashableChunkText(chunks)).catch(() => '');
-  if (hash && hash !== kg.contentHash) {
-    console.warn('[hev-ask] Digest content hash is stale; run `ask kg build` to refresh it.');
+  if (hash && hash !== digest.contentHash) {
+    console.warn('[hev-ask] Digest content hash is stale; run `ask digest build` to refresh it.');
   }
 }
 

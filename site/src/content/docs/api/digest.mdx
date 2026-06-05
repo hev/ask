@@ -13,10 +13,10 @@ the distilled summaries, verbatim facts, and glossary the loop reasons over.
 </Callout>
 
 The ask digest is a single JSON file, by default `.hev-ask/digest.json`, built
-offline by [`ask kg build`](/docs/api/cli) and committed to your repo. (`kg` is
-the digest's historical name; it survives in the CLI group, the `--kg-path`
-flag, and the virtual module id.) The integration inlines it into the build through the
-`virtual:hev-ask/kg` module, so the running site reads it with no filesystem
+offline by [`ask digest build`](/docs/api/cli) and committed to your repo. (In
+earlier versions it was called the knowledge graph, or `kg`.) The
+integration inlines it into the build through the
+`virtual:hev-ask/digest` module, so the running site reads it with no filesystem
 access.
 
 It is the **agent's view of your docs** — a distilled, source-grounded index
@@ -70,10 +70,10 @@ its source.
 | `glossary` | `GlossaryEntry[]` | Terms with aliases and definitions; widens keyword search. |
 | `overview` | `string` | A deterministic grouped map of every section, injected into the agent's prompt. |
 | `suggestions` | `string[]` | Model-authored example questions the overlay shows on open. The endpoint serves them; absent ⇒ the overlay shows none. |
-| `nodes` | `KnowledgeNode[]` | One distilled section per doc heading — the body of the digest. |
-| `edges` | `KnowledgeEdge[]` | Reserved; ships empty. |
+| `nodes` | `DigestNode[]` | One distilled section per doc heading — the body of the digest. |
+| `edges` | `DigestEdge[]` | Reserved; ships empty. |
 
-### `KnowledgeNode`
+### `DigestNode`
 
 | Field | Type | Description |
 |---|---|---|
@@ -122,6 +122,10 @@ computation — and the reason the model step can move into a
 Rebuild after content changes and commit the result. The hash gate makes this
 safe to run on every build — it only spends model work when the content actually
 changed. Build it with the bundled **Claude Code skill** (no API key) or
-`ask kg build` (one API call); the integration also runs `ask kg build` during
-`astro build` when a key is present. Run [`ask kg verify`](/docs/api/cli) to
-gate anchors, coverage, and literal fidelity.
+`ask digest build` (one API call, bounded at ~600KB of corpus text); the
+integration also runs `ask digest build` during `astro build` when a key is
+present. Large sites use the
+[sharded flow](/docs/api/cli#sharded-builds-for-large-sites), which distils the
+corpus shard-by-shard in fresh contexts and re-distils only the shards a
+content edit touches. Run [`ask digest verify`](/docs/api/cli) to gate anchors,
+coverage, and literal fidelity.

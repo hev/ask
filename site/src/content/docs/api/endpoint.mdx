@@ -33,7 +33,7 @@ graph at all — just means the overlay shows none.
 
 ## Digest reads (GET)
 
-These routes read `virtual:hev-ask/kg`, never call a model, and never require an
+These routes read `virtual:hev-ask/digest`, never call a model, and never require an
 API key:
 
 | Route | Response |
@@ -185,4 +185,4 @@ the answer path never depends on telemetry.
 The chunk index is built once per server instance on the first request and
 cached for the process lifetime. On the first request the endpoint also compares
 the live content hash against the digest's hash and logs a one-time
-warning if they differ — your cue to run [`ask kg build`](/docs/api/cli).
+warning if they differ — your cue to run [`ask digest build`](/docs/api/cli).

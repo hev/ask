@@ -6,10 +6,10 @@ import {
   getSection,
   listGlossary,
   listSectionSummaries,
-} from '../src/kg/read.ts';
-import type { KnowledgeGraph } from '../src/kg/schema.ts';
+} from '../src/digest/read.ts';
+import type { Digest } from '../src/digest/schema.ts';
 
-const graph: KnowledgeGraph = {
+const graph: Digest = {
   version: 2,
   generatedAt: '',
   contentHash: '',
@@ -45,7 +45,7 @@ const graph: KnowledgeGraph = {
       group: 'API',
       url: '/docs/api/cli#flags',
       summary: 'Command flags.',
-      facts: [{ kind: 'flag', literal: '--kg-path', chunkId: 'api/cli#flags' }],
+      facts: [{ kind: 'flag', literal: '--digest-path', chunkId: 'api/cli#flags' }],
       sources: [{ chunkId: 'api/cli#flags', url: '/docs/api/cli#flags', anchor: 'flags' }],
       mode: 'source-primary',
       terms: ['flags'],
@@ -82,7 +82,7 @@ test('read API lists section summaries and filters by group case-insensitively',
 
 test('read API resolves encoded section ids with slashes and anchors', () => {
   assert.equal(getSection(graph, 'api%2Fcli%23flags')?.summary, 'Command flags.');
-  assert.equal(getSection(graph, 'api/cli%23flags')?.facts[0]?.literal, '--kg-path');
+  assert.equal(getSection(graph, 'api/cli%23flags')?.facts[0]?.literal, '--digest-path');
   assert.equal(getSection(graph, 'api/cli#missing'), null);
 });
 

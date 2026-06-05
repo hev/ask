@@ -4,9 +4,9 @@ import type { AgenticEvent, CallClaude, StreamClaude } from '../src/search/loop.
 import { runAgenticAnswerLoop, toolUse } from '../src/search/loop.ts';
 import type { StreamEvent } from '../src/llm.ts';
 import { chunkDocument, type Chunk } from '../src/search/chunk.ts';
-import type { KnowledgeGraph } from '../src/kg/schema.ts';
+import type { Digest } from '../src/digest/schema.ts';
 
-const kg: KnowledgeGraph = {
+const digest: Digest = {
   version: 1,
   generatedAt: '',
   contentHash: '',
@@ -64,7 +64,7 @@ test('answer loop runs searches, emits sources before tokens, then streams the a
       apiKey: 'test-key',
       query: 'how does scaling work?',
       chunks: makeChunks(),
-      kg,
+      digest,
       config,
       call,
       stream: streamText('Auto', 'scaling scales workers. ', 'See [autoscaling](/docs/concepts#kubernetes-autoscaling).'),
@@ -115,7 +115,7 @@ test('answer turn always begins on a user turn so it cannot prefill-empty', asyn
       apiKey: 'k',
       query: 'index crd',
       chunks: makeChunks(),
-      kg,
+      digest,
       config,
       call,
       stream: capturingStream(sink, 'The ', 'answer.'),
@@ -136,7 +136,7 @@ test('answer loop seeds a fallback search when the model never searches', async 
       apiKey: 'test-key',
       query: 'autoscaling',
       chunks: makeChunks(),
-      kg,
+      digest,
       config,
       call,
       stream: streamText('Grounded answer.'),

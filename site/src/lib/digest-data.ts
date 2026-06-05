@@ -1,4 +1,4 @@
-import kgRaw from "../../.hev-ask/digest.json?raw";
+import digestRaw from "../../.hev-ask/digest.json?raw";
 
 export interface GlossaryTerm {
 	term: string;
@@ -6,13 +6,13 @@ export interface GlossaryTerm {
 	definition: string;
 }
 
-export interface KgFact {
+export interface DigestFact {
 	kind: "code" | "flag" | "value" | string;
 	literal: string;
 	chunkId: string;
 }
 
-export interface KgNode {
+export interface DigestNode {
 	id: string;
 	kind: string;
 	title: string;
@@ -20,29 +20,29 @@ export interface KgNode {
 	group: string | null;
 	url: string;
 	summary: string;
-	facts: KgFact[];
+	facts: DigestFact[];
 	mode: "agent-primary" | "source-primary";
 	terms: string[];
 }
 
-export interface KnowledgeGraph {
+export interface Digest {
 	version: number;
 	generatedAt: string;
 	contentHash: string;
 	context: string;
 	glossary: GlossaryTerm[];
 	overview: string;
-	nodes: KgNode[];
+	nodes: DigestNode[];
 }
 
-export const knowledgeGraph = JSON.parse(kgRaw) as KnowledgeGraph;
+export const digestData = JSON.parse(digestRaw) as Digest;
 
-export const knowledgeGraphHref = "/digest";
+export const digestHref = "/digest";
 
 /** Nodes grouped by their docs group, preserving id order within a group. */
-export function nodesByGroup(): { group: string; nodes: KgNode[] }[] {
-	const map = new Map<string, KgNode[]>();
-	for (const node of knowledgeGraph.nodes ?? []) {
+export function nodesByGroup(): { group: string; nodes: DigestNode[] }[] {
+	const map = new Map<string, DigestNode[]>();
+	for (const node of digestData.nodes ?? []) {
 		const group = node.group ?? "Docs";
 		if (!map.has(group)) map.set(group, []);
 		map.get(group)!.push(node);
@@ -52,8 +52,8 @@ export function nodesByGroup(): { group: string; nodes: KgNode[] }[] {
 		.map(([group, nodes]) => ({ group, nodes }));
 }
 
-export function getKnowledgeGraphRawJson() {
-	return JSON.stringify(knowledgeGraph, null, 2);
+export function getDigestRawJson() {
+	return JSON.stringify(digestData, null, 2);
 }
 
 function escapeHtml(text: string) {
@@ -70,10 +70,10 @@ function renderInline(text: string) {
 }
 
 /**
- * Render the KG's constrained markdown (the `context` field) to HTML:
+ * Render the digest's constrained markdown (the `context` field) to HTML:
  * `##`/`###` headings, `-` bullet lists, paragraphs, `**bold**`, `code`.
  */
-export function renderKgMarkdown(md: string): string {
+export function renderDigestMarkdown(md: string): string {
 	const out: string[] = [];
 	let list: string[] | null = null;
 	const flushList = () => {
@@ -105,6 +105,6 @@ export function renderKgMarkdown(md: string): string {
 }
 
 export function formatGeneratedAt() {
-	const date = new Date(knowledgeGraph.generatedAt);
-	return Number.isNaN(date.getTime()) ? knowledgeGraph.generatedAt || "—" : date.toISOString();
+	const date = new Date(digestData.generatedAt);
+	return Number.isNaN(date.getTime()) ? digestData.generatedAt || "—" : date.toISOString();
 }

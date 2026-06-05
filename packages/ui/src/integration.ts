@@ -4,11 +4,11 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { EMPTY_KG, normalizeKnowledgeGraph } from './kg/schema';
+import { EMPTY_DIGEST, normalizeDigest } from './digest/schema';
 import type { HevAskOptions, ResolvedConfig } from './types';
 
 const CONFIG_VIRTUAL_ID = 'virtual:hev-ask/config';
-const KG_VIRTUAL_ID = 'virtual:hev-ask/kg';
+const DIGEST_VIRTUAL_ID = 'virtual:hev-ask/digest';
 const execFileAsync = promisify(execFile);
 
 /**
@@ -19,7 +19,7 @@ export default function hevAsk(options: HevAskOptions = {}): AstroIntegration {
   const config: ResolvedConfig = {
     collections: options.collections ?? null,
     model: options.model ?? 'claude-haiku-4-5',
-    kgModel: options.kgModel ?? 'claude-opus-4-8',
+    digestModel: options.digestModel ?? 'claude-opus-4-8',
     endpoint: options.endpoint ?? '/api/ask',
     basePath: options.basePath ?? '/docs/',
     maxResults: options.maxResults ?? 6,
@@ -28,8 +28,8 @@ export default function hevAsk(options: HevAskOptions = {}): AstroIntegration {
     chunkHeadingDepth: options.chunkHeadingDepth ?? 3,
     candidatePerSearch: options.candidatePerSearch ?? 8,
     perDocCap: options.perDocCap ?? 2,
-    kgPath: options.kgPath ?? '.hev-ask/digest.json',
-    kgContentGlobs: options.kgContentGlobs,
+    digestPath: options.digestPath ?? '.hev-ask/digest.json',
+    digestContentGlobs: options.digestContentGlobs,
   };
 
   let siteRoot = process.cwd();
@@ -40,7 +40,7 @@ export default function hevAsk(options: HevAskOptions = {}): AstroIntegration {
       'astro:config:setup': ({ config: astroConfig, injectRoute, updateConfig, logger, addWatchFile }) => {
         siteRoot = fileURLToPath(astroConfig.root);
         updateConfig({
-          vite: { plugins: [virtualConfigPlugin(config), virtualKgPlugin(config, siteRoot)] },
+          vite: { plugins: [virtualConfigPlugin(config), virtualDigestPlugin(config, siteRoot)] },
         });
 
         injectRoute({
@@ -49,7 +49,7 @@ export default function hevAsk(options: HevAskOptions = {}): AstroIntegration {
           prerender: false,
         });
 
-        addWatchFile(new URL(config.kgPath, astroConfig.root));
+        addWatchFile(new URL(config.digestPath, astroConfig.root));
 
         if (!config.collections?.length) {
           logger.warn('No `collections` configured; search will error until you set e.g. collections: ["docs"].');
@@ -60,12 +60,12 @@ export default function hevAsk(options: HevAskOptions = {}): AstroIntegration {
         if (!config.collections?.length) return;
         const apiKey = process.env.ANTHROPIC_API_KEY;
         if (!apiKey) {
-          logger.warn(`ANTHROPIC_API_KEY is not set; using committed ${config.kgPath} if present.`);
+          logger.warn(`ANTHROPIC_API_KEY is not set; using committed ${config.digestPath} if present.`);
           return;
         }
 
         try {
-          const output = await runKnowledgeGraphBuild(siteRoot, config);
+          const output = await runDigestBuild(siteRoot, config);
           if (output) logger.info(output);
         } catch (err) {
           logger.warn(`digest build failed; using committed artifact if present. ${(err as Error).message}`);
@@ -89,46 +89,46 @@ function virtualConfigPlugin(config: ResolvedConfig) {
   };
 }
 
-function virtualKgPlugin(config: ResolvedConfig, siteRoot: string) {
-  const resolvedId = '\0' + KG_VIRTUAL_ID;
+function virtualDigestPlugin(config: ResolvedConfig, siteRoot: string) {
+  const resolvedId = '\0' + DIGEST_VIRTUAL_ID;
   return {
-    name: 'hev-ask:kg',
+    name: 'hev-ask:digest',
     resolveId(id: string) {
-      return id === KG_VIRTUAL_ID ? resolvedId : undefined;
+      return id === DIGEST_VIRTUAL_ID ? resolvedId : undefined;
     },
     load(id: string) {
       if (id !== resolvedId) return undefined;
-      const kg = readKnowledgeGraph(siteRoot, config.kgPath);
-      return `export default ${JSON.stringify(kg)};`;
+      const digest = readDigest(siteRoot, config.digestPath);
+      return `export default ${JSON.stringify(digest)};`;
     },
   };
 }
 
-function readKnowledgeGraph(siteRoot: string, kgPath: string) {
+function readDigest(siteRoot: string, digestPath: string) {
   try {
-    return normalizeKnowledgeGraph(JSON.parse(readFileSync(path.resolve(siteRoot, kgPath), 'utf8')));
+    return normalizeDigest(JSON.parse(readFileSync(path.resolve(siteRoot, digestPath), 'utf8')));
   } catch {
-    return EMPTY_KG;
+    return EMPTY_DIGEST;
   }
 }
 
-async function runKnowledgeGraphBuild(siteRoot: string, config: ResolvedConfig): Promise<string> {
+async function runDigestBuild(siteRoot: string, config: ResolvedConfig): Promise<string> {
   const askBin = fileURLToPath(new URL('../bin/ask.mjs', import.meta.url));
   const args = [
     askBin,
-    'kg',
+    'digest',
     'build',
-    '--kg-path',
-    config.kgPath,
+    '--digest-path',
+    config.digestPath,
     '--base-path',
     config.basePath,
     '--chunk-heading-depth',
     String(config.chunkHeadingDepth),
-    '--kg-model',
-    config.kgModel,
+    '--digest-model',
+    config.digestModel,
   ];
   for (const collection of config.collections ?? []) args.push('--collection', collection);
-  for (const glob of config.kgContentGlobs ?? []) args.push('--content-glob', glob);
+  for (const glob of config.digestContentGlobs ?? []) args.push('--content-glob', glob);
 
   const { stdout, stderr } = await execFileAsync(process.execPath, args, {
     cwd: siteRoot,

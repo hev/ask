@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "kg:build": "ask kg build",
-    "kg:verify": "ask kg verify",
+    "digest:build": "ask digest build",
+    "digest:verify": "ask digest verify",
     "preview": "astro preview",
     "typecheck": "astro check"
   },

@@ -28,7 +28,7 @@ func writeParityFixture(t *testing.T) string {
 		"# Page Title\n\n"+
 		"Intro with [a link](/x), `code`, and <Badge />.\n\n"+
 		"## Install `ask`!\n\n"+
-		"Use `ask search` and `--kg-path`.\n\n"+
+		"Use `ask search` and `--digest-path`.\n\n"+
 		"### Install `ask`! ###\n\n"+
 		"Duplicate heading with v1.2.3 and `claude-haiku-4-5`.\n\n"+
 		"#### Too Deep\n\n"+
@@ -54,7 +54,7 @@ func TestBuildCorpusMatchesTypeScriptFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if corpus.ContentHash != "9acd99f065a22fbb9e1dd186a162ef9b7cc441c24f42393db1ad5ab0fae91a51" {
+	if corpus.ContentHash != "2409c203fad949741c1b2121f36b8a2c7990f8d32579734903636874095257fd" {
 		t.Fatalf("unexpected content hash: %s", corpus.ContentHash)
 	}
 	gotIDs := make([]string, len(corpus.Chunks))
@@ -80,13 +80,13 @@ func TestBuildCorpusMatchesTypeScriptFixture(t *testing.T) {
 	}
 }
 
-func TestAssembleGraphDerivesNodesFactsAndOverview(t *testing.T) {
+func TestAssembleDigestDerivesNodesFactsAndOverview(t *testing.T) {
 	root := writeParityFixture(t)
 	corpus, err := BuildCorpus(BuildOptions{SiteRoot: root, Collections: []string{"docs"}, BasePath: "/docs/", ChunkHeadingDepth: 3})
 	if err != nil {
 		t.Fatal(err)
 	}
-	graph := AssembleGraph(EmittedDistillation{
+	digest := AssembleDigest(EmittedDistillation{
 		Context: "Fixture docs.",
 		Glossary: []GlossaryEntry{
 			{Term: "ask CLI", Aliases: []string{"ask"}, Definition: "Reads docs."},
@@ -96,10 +96,10 @@ func TestAssembleGraphDerivesNodesFactsAndOverview(t *testing.T) {
 			"How do I configure the endpoint?",
 		},
 	}, corpus)
-	if graph.ContentHash != corpus.ContentHash || len(graph.Nodes) != len(corpus.Chunks) {
-		t.Fatalf("unexpected graph shape: %#v", graph)
+	if digest.ContentHash != corpus.ContentHash || len(digest.Nodes) != len(corpus.Chunks) {
+		t.Fatalf("unexpected digest shape: %#v", digest)
 	}
-	node, ok := GetSection(graph, "api/config#options")
+	node, ok := GetSection(digest, "api/config#options")
 	if !ok {
 		t.Fatal("missing api/config#options node")
 	}
@@ -109,7 +109,7 @@ func TestAssembleGraphDerivesNodesFactsAndOverview(t *testing.T) {
 	if len(node.Facts) != 2 || node.Facts[0].Literal != "endpoint" || node.Facts[1].Literal != "/api/ask" {
 		t.Fatalf("unexpected facts: %#v", node.Facts)
 	}
-	if graph.Overview == "" || graph.Suggestions[0] == "" {
-		t.Fatalf("expected overview and suggestions: %#v", graph)
+	if digest.Overview == "" || digest.Suggestions[0] == "" {
+		t.Fatalf("expected overview and suggestions: %#v", digest)
 	}
 }

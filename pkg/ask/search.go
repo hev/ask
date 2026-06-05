@@ -12,8 +12,8 @@ type SearchOptions struct {
 	MaxResults int
 }
 
-func SearchGraph(graph KnowledgeGraph, query string, opts SearchOptions) KeywordResponse {
-	terms := expandQueryTerms(query, graph.Glossary)
+func SearchDigest(digest Digest, query string, opts SearchOptions) KeywordResponse {
+	terms := expandQueryTerms(query, digest.Glossary)
 	if opts.MaxResults <= 0 {
 		opts.MaxResults = 8
 	}
@@ -22,11 +22,11 @@ func SearchGraph(graph KnowledgeGraph, query string, opts SearchOptions) Keyword
 	}
 
 	type scored struct {
-		node  KnowledgeNode
+		node  DigestNode
 		score int
 	}
-	scoredNodes := make([]scored, 0, len(graph.Nodes))
-	for _, node := range graph.Nodes {
+	scoredNodes := make([]scored, 0, len(digest.Nodes))
+	for _, node := range digest.Nodes {
 		haystack := nodeTokenSet(node)
 		score := 0
 		for _, term := range terms {
@@ -107,7 +107,7 @@ func expandQueryTerms(query string, glossary []GlossaryEntry) []string {
 	return terms
 }
 
-func nodeTokenSet(node KnowledgeNode) map[string]bool {
+func nodeTokenSet(node DigestNode) map[string]bool {
 	tokens := map[string]bool{}
 	add := func(values ...string) {
 		for _, value := range values {

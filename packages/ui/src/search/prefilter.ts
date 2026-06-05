@@ -1,5 +1,5 @@
-import type { GlossaryEntry, KnowledgeNode } from '../kg/schema';
-import { expandQueryTerms } from '../kg/expand.ts';
+import type { GlossaryEntry, DigestNode } from '../digest/schema';
+import { expandQueryTerms } from '../digest/expand.ts';
 import { tokenize } from './chunk.ts';
 import type { Chunk } from './chunk';
 
@@ -14,10 +14,10 @@ export interface Candidate {
 /**
  * Distinctive tokens the digest carries for a section: its `terms`, the
  * tokens of its distilled `summary`, and the tokens of its verbatim `facts`. A
- * query term hitting any of these means the graph considers that section central
+ * query term hitting any of these means the digest considers that section central
  * to the term, so it earns a ranking boost over an incidental body mention.
  */
-function nodeSignal(nodes: KnowledgeNode[] | undefined): Map<string, Set<string>> {
+function nodeSignal(nodes: DigestNode[] | undefined): Map<string, Set<string>> {
   const signal = new Map<string, Set<string>>();
   if (!nodes) return signal;
   for (const node of nodes) {
@@ -42,7 +42,7 @@ export function prefilter(
   glossary: GlossaryEntry[],
   pool: number,
   perDocCap: number,
-  nodes?: KnowledgeNode[],
+  nodes?: DigestNode[],
 ): Candidate[] {
   const terms = expandQueryTerms(query, glossary);
   if (!terms.length) return [];

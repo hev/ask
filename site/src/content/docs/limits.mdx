@@ -1,6 +1,6 @@
 ---
 title: "Limits"
-description: "The hard boundaries of hev ask: corpus scope, recall ceiling, single-call digest build, frontmatter parsing, latency, and adapter requirements — what it deliberately does not do."
+description: "The hard boundaries of hev ask: corpus scope, recall ceiling, digest build limits, frontmatter parsing, latency, and adapter requirements — what it deliberately does not do."
 group: "Overview"
 order: 4
 ---
@@ -36,14 +36,20 @@ built yet. If your analytics show questions consistently missing, that's the
 signal it's time — until then, a richer glossary is the cheaper lever.
 </Callout>
 
-## The digest build is a single model call
+## The one-shot digest build is bounded; sharded builds are not
 
-The offline build sends your full cleaned corpus to the model in one call. For
-a typical docs site (dozens of pages) this fits comfortably. A very large
-corpus would exceed a single context window.
+`ask digest build` sends your full cleaned corpus to the model in one call. For
+a typical docs site (dozens of pages) this fits comfortably; past ~600KB of
+section text it fails loudly instead of degrading.
 
-A map-reduce builder (per-doc summaries merged into one graph) is noted as a
-follow-up but is **not implemented**. Today, assume the corpus fits one call.
+Beyond that, use the [sharded build](/docs/api/cli#sharded-builds-for-large-sites):
+the corpus splits into prefix-stable shards, each distilled in its own fresh
+context, then merged deterministically. Corpus size stops being a context-window
+problem — a Cloudflare-docs-scale corpus (~30MB, ~25k sections) shards into
+~170 pieces and re-distils only the shard a content edit touches. The runtime
+prompt is the remaining scale consideration: the agentic path inlines node
+summaries, so digests with tens of thousands of nodes are not yet a fit for
+the answer loop.
 
 ## Frontmatter parsing is a flat-YAML subset
 
@@ -65,7 +71,7 @@ instant lane and always available; agentic search is the considered one. Tune
 
 Deep links are only correct as long as the heading slugs hev ask generates
 match Astro's rendered `id` attributes. hev ask uses the same `github-slugger`
-to stay aligned, and ships an `ask kg verify` command that fails if any
+to stay aligned, and ships an `ask digest verify` command that fails if any
 chunk anchor is missing from the built HTML.
 
 **Wire `verify` into CI.** If Astro ever changes its slugging, the verifier is

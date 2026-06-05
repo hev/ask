@@ -1,18 +1,18 @@
 ---
 import Base from "../layouts/Base.astro";
 import {
-	knowledgeGraph,
+	digestData,
 	nodesByGroup,
-	getKnowledgeGraphRawJson,
+	getDigestRawJson,
 	formatGeneratedAt,
-	renderKgMarkdown,
-} from "../lib/knowledge-graph";
+	renderDigestMarkdown,
+} from "../lib/digest-data";
 
 const groups = nodesByGroup();
-const nodeCount = knowledgeGraph.nodes?.length ?? 0;
-const glossaryCount = knowledgeGraph.glossary?.length ?? 0;
-const shortHash = (knowledgeGraph.contentHash ?? "").slice(0, 12) || "—";
-const rawJson = getKnowledgeGraphRawJson();
+const nodeCount = digestData.nodes?.length ?? 0;
+const glossaryCount = digestData.glossary?.length ?? 0;
+const shortHash = (digestData.contentHash ?? "").slice(0, 12) || "—";
+const rawJson = getDigestRawJson();
 ---
 
 <Base
@@ -20,8 +20,8 @@ const rawJson = getKnowledgeGraphRawJson();
 	description="The rendered ask digest for this site — the map the agentic loop holds in context, and the facts it reveals when it opens a section. This is what the agent sees."
 	current="docs"
 >
-	<main class="kg">
-		<header class="kg-head">
+	<main class="digest">
+		<header class="digest-head">
 			<p class="kicker">// what the agent sees</p>
 			<h1>Ask digest</h1>
 			<p class="lede">
@@ -30,12 +30,12 @@ const rawJson = getKnowledgeGraphRawJson();
 				<code>.hev-ask/digest.json</code>, rendered here exactly the way the loop
 				discloses it: a map it holds in context, and details it opens on demand.
 			</p>
-			<dl class="kg-meta">
-				<div><dt>version</dt><dd>{knowledgeGraph.version}</dd></div>
+			<dl class="digest-meta">
+				<div><dt>version</dt><dd>{digestData.version}</dd></div>
 				<div><dt>sections</dt><dd>{nodeCount}</dd></div>
 				<div><dt>glossary</dt><dd>{glossaryCount}</dd></div>
 				<div><dt>generated</dt><dd title={formatGeneratedAt()}>{formatGeneratedAt().slice(0, 10) || "—"}</dd></div>
-				<div><dt>content hash</dt><dd title={knowledgeGraph.contentHash}>{shortHash}</dd></div>
+				<div><dt>content hash</dt><dd title={digestData.contentHash}>{shortHash}</dd></div>
 			</dl>
 		</header>
 
@@ -61,18 +61,18 @@ const rawJson = getKnowledgeGraphRawJson();
 			<p class="disclosure-note">Expand a row to make the same call the agent does.</p>
 		</section>
 
-		<section class="kg-block">
+		<section class="digest-block">
 			<h2>Orientation</h2>
 			<p class="block-note">The compact product overview the build distills — context for the keyword/expansion path.</p>
-			<div class="prose" set:html={renderKgMarkdown(knowledgeGraph.context ?? "")} />
+			<div class="prose" set:html={renderDigestMarkdown(digestData.context ?? "")} />
 		</section>
 
-		<section class="kg-block">
+		<section class="digest-block">
 			<h2>Glossary <span class="count">{glossaryCount} terms</span></h2>
 			<p class="block-note">Aliases that widen a reader's query before retrieval — so <code>k8s</code> finds <code>kubernetes</code>. List the terms; open one for its aliases and definition.</p>
 			<ul class="disclose-list">
 				{
-					(knowledgeGraph.glossary ?? []).map((g) => (
+					(digestData.glossary ?? []).map((g) => (
 						<li>
 							<details>
 								<summary>
@@ -98,12 +98,12 @@ const rawJson = getKnowledgeGraphRawJson();
 			</ul>
 		</section>
 
-		<section class="kg-block">
+		<section class="digest-block">
 			<h2>Sections <span class="count">{nodeCount} nodes</span></h2>
 			<p class="block-note">One node per heading — the map the agent navigates. Collapsed shows the summary it always sees; open a section to reveal its facts, just like the loop's <code>open_section</code>.</p>
 			{
 				groups.map((grp) => (
-					<div class="kg-group">
+					<div class="digest-group">
 						<h3>{grp.group}</h3>
 						<ul class="disclose-list">
 							{grp.nodes.map((node) => (
@@ -148,7 +148,7 @@ const rawJson = getKnowledgeGraphRawJson();
 			}
 		</section>
 
-		<details class="kg-raw">
+		<details class="digest-raw">
 			<summary>Raw <code>digest.json</code> artifact</summary>
 			<pre><code>{rawJson}</code></pre>
 		</details>
@@ -156,7 +156,7 @@ const rawJson = getKnowledgeGraphRawJson();
 </Base>
 
 <style>
-	.kg {
+	.digest {
 		width: var(--page);
 		max-width: 820px;
 		margin: 0 auto;
@@ -195,7 +195,7 @@ const rawJson = getKnowledgeGraphRawJson();
 		border-radius: 3px;
 	}
 
-	.kg-meta {
+	.digest-meta {
 		display: grid;
 		grid-template-columns: repeat(5, minmax(0, 1fr));
 		border: 1px solid var(--rule-strong);
@@ -203,17 +203,17 @@ const rawJson = getKnowledgeGraphRawJson();
 		margin-top: 2rem;
 	}
 
-	.kg-meta div {
+	.digest-meta div {
 		min-width: 0;
 		padding: 0.85rem 1rem;
 		border-right: 1px solid var(--rule);
 	}
 
-	.kg-meta div:last-child {
+	.digest-meta div:last-child {
 		border-right: 0;
 	}
 
-	.kg-meta dt {
+	.digest-meta dt {
 		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
 		font-size: 0.65rem;
 		letter-spacing: 0.08em;
@@ -222,7 +222,7 @@ const rawJson = getKnowledgeGraphRawJson();
 		margin-bottom: 0.25rem;
 	}
 
-	.kg-meta dd {
+	.digest-meta dd {
 		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
 		font-size: 0.95rem;
 		color: var(--ink);
@@ -273,11 +273,11 @@ const rawJson = getKnowledgeGraphRawJson();
 		color: var(--muted);
 	}
 
-	.kg-block {
+	.digest-block {
 		margin-top: 3.5rem;
 	}
 
-	.kg-block h2 {
+	.digest-block h2 {
 		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
 		font-size: 1.25rem;
 		letter-spacing: -0.01em;
@@ -287,7 +287,7 @@ const rawJson = getKnowledgeGraphRawJson();
 		gap: 0.6rem;
 	}
 
-	.kg-block h2::before {
+	.digest-block h2::before {
 		content: "#";
 		color: var(--signal);
 	}
@@ -551,11 +551,11 @@ const rawJson = getKnowledgeGraphRawJson();
 		text-decoration: underline;
 	}
 
-	.kg-group {
+	.digest-group {
 		margin-top: 2rem;
 	}
 
-	.kg-group h3 {
+	.digest-group h3 {
 		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
 		font-size: 0.75rem;
 		letter-spacing: 0.1em;
@@ -564,14 +564,14 @@ const rawJson = getKnowledgeGraphRawJson();
 		margin-bottom: 0.75rem;
 	}
 
-	.kg-raw {
+	.digest-raw {
 		margin-top: 3.5rem;
 		border: 1px solid var(--rule-strong);
 		border-radius: 2px;
 		background: var(--paper-warm);
 	}
 
-	.kg-raw > summary {
+	.digest-raw > summary {
 		cursor: pointer;
 		padding: 0.85rem 1.1rem;
 		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
@@ -579,11 +579,11 @@ const rawJson = getKnowledgeGraphRawJson();
 		color: var(--ink-soft);
 	}
 
-	.kg-raw > summary:hover {
+	.digest-raw > summary:hover {
 		color: var(--signal);
 	}
 
-	.kg-raw pre {
+	.digest-raw pre {
 		margin: 0;
 		border: 0;
 		border-top: 1px solid var(--rule);
@@ -597,14 +597,14 @@ const rawJson = getKnowledgeGraphRawJson();
 		max-height: 480px;
 	}
 
-	.kg-raw pre code {
+	.digest-raw pre code {
 		background: transparent;
 		padding: 0;
 		color: inherit;
 	}
 
 	@media (max-width: 760px) {
-		.kg-meta {
+		.digest-meta {
 			grid-template-columns: 1fr 1fr;
 		}
 

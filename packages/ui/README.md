@@ -44,9 +44,9 @@ export default defineConfig({
 | `chunkHeadingDepth` | `3` | Chunk at `##` through this heading depth. |
 | `candidatePerSearch` | `8` | Chunks returned by each search tool call. |
 | `perDocCap` | `2` | Max chunks per document in one prefilter call. |
-| `kgModel` | `claude-opus-4-8` | Offline KG build model. |
-| `kgPath` | `.hev-ask/digest.json` | Committed KG artifact path. |
-| `kgContentGlobs` | derived from `collections` | Build-time Markdown/MDX corpus globs. |
+| `digestModel` | `claude-opus-4-8` | Offline digest build model. |
+| `digestPath` | `.hev-ask/digest.json` | Committed digest artifact path. |
+| `digestContentGlobs` | derived from `collections` | Build-time Markdown/MDX corpus globs. |
 
 ## Add the overlay
 
@@ -64,11 +64,11 @@ Open with `⌘K` / `Ctrl+K`, or `/`. Any element with `data-hev-ask-open` also
 opens it. Typing returns keyword results immediately. Press `Enter` to ask AI,
 or move the selection with arrows/hover and press `Enter` to open a keyword hit.
 
-## Knowledge Graph
+## Ask digest
 
 ```sh
-ask kg build
-ask kg verify
+ask digest build
+ask digest verify
 ```
 
 The builder writes `.hev-ask/digest.json`, which should be committed. Builds are
@@ -83,7 +83,7 @@ Recommended CI gates:
 pnpm test
 pnpm typecheck
 pnpm build
-pnpm kg:verify
+pnpm digest:verify
 ```
 
 ## Publishing
@@ -104,7 +104,7 @@ yet published, but they are not the long-term distribution path.
 
 ## Server Requirements
 
-- Set `ANTHROPIC_API_KEY` for AI search and fresh KG generation.
+- Set `ANTHROPIC_API_KEY` for AI search and fresh digest generation.
 - Without a runtime key, `/api/ask` still serves keyword results.
 - The search route is rendered on demand, so the site needs a server adapter in
   production.

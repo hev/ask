@@ -5,16 +5,16 @@ import { callClaude, type AnthropicTool } from '../llm.ts';
 import { chunkDocument, hashableChunkText, type Chunk, type SourceDocument } from '../search/chunk.ts';
 import { classifyMode, distinctiveTokens, extractFacts } from './facts.ts';
 import { parseFrontmatter } from './frontmatter.ts';
-import { normalizeKnowledgeGraph, type KnowledgeGraph, type KnowledgeNode } from './schema.ts';
+import { normalizeDigest, type Digest, type DigestNode } from './schema.ts';
 
-export interface KnowledgeGraphBuildOptions {
+export interface DigestBuildOptions {
   siteRoot: string;
   collections: string[] | null;
   basePath: string;
-  kgPath: string;
-  kgContentGlobs?: string[];
+  digestPath: string;
+  digestContentGlobs?: string[];
   chunkHeadingDepth: number;
-  kgModel: string;
+  digestModel: string;
   apiKey?: string;
 }
 
@@ -24,14 +24,14 @@ export interface CorpusBuild {
   contentHash: string;
 }
 
-export interface KnowledgeGraphBuildResult {
+export interface DigestBuildResult {
   status: 'built' | 'skipped';
   path: string;
   contentHash: string;
   chunks: number;
 }
 
-const KG_TOOL: AnthropicTool = {
+const DIGEST_TOOL: AnthropicTool = {
   name: 'emit_digest',
   description:
     'Emit a documentation digest: a compact orientation, a glossary, and one distilled summary per section.',
@@ -85,22 +85,22 @@ const KG_TOOL: AnthropicTool = {
 
 export interface EmittedDistillation {
   context: string;
-  glossary: KnowledgeGraph['glossary'];
+  glossary: Digest['glossary'];
   summaries: Array<{ id: string; summary: string }>;
   suggestions: string[];
 }
 
 /** The exact model-input payload the skill (or `build`) distils from. */
-export interface KnowledgeGraphInput {
+export interface DigestInput {
   contentHash: string;
-  kgPath: string;
+  digestPath: string;
   /** True when the committed digest.json already matches this corpus — no rebuild needed. */
   upToDate: boolean;
   sections: Array<{ id: string; url: string; title: string; text: string }>;
 }
 
 /** Sections handed to the model: one entry per heading chunk. */
-export function corpusSections(corpus: CorpusBuild): KnowledgeGraphInput['sections'] {
+export function corpusSections(corpus: CorpusBuild): DigestInput['sections'] {
   return corpus.chunks.map((chunk) => ({
     id: chunk.id,
     url: chunk.url,
@@ -110,12 +110,12 @@ export function corpusSections(corpus: CorpusBuild): KnowledgeGraphInput['sectio
 }
 
 /**
- * Assembles the committed graph from a model distillation. Everything but the
+ * Assembles the committed digest from a model distillation. Everything but the
  * distilled fields (`summary`, `glossary`, `context`, `suggestions`) is derived
  * here deterministically, so it is identical whether the distillation came from
  * the API or a Claude Code skill.
  */
-export function assembleGraph(emitted: EmittedDistillation, corpus: CorpusBuild): KnowledgeGraph {
+export function assembleDigest(emitted: EmittedDistillation, corpus: CorpusBuild): Digest {
   const summaryById = new Map(emitted.summaries.map((entry) => [entry.id, entry.summary]));
   return {
     version: 2,
@@ -130,11 +130,11 @@ export function assembleGraph(emitted: EmittedDistillation, corpus: CorpusBuild)
   };
 }
 
-export async function buildKnowledgeGraph(options: KnowledgeGraphBuildOptions): Promise<KnowledgeGraphBuildResult> {
+export async function buildDigest(options: DigestBuildOptions): Promise<DigestBuildResult> {
   const corpus = await buildCorpus(options);
-  const outPath = path.resolve(options.siteRoot, options.kgPath);
-  const existing = await readExistingKg(outPath);
-  // Skip only when the committed artifact is already a current-version graph with
+  const outPath = path.resolve(options.siteRoot, options.digestPath);
+  const existing = await readExistingDigest(outPath);
+  // Skip only when the committed artifact is already a current-version digest with
   // nodes built from this exact corpus. A v1 (node-less) artifact always rebuilds.
   if (existing && existing.version === 2 && existing.contentHash === corpus.contentHash && existing.nodes.length > 0) {
     return { status: 'skipped', path: outPath, contentHash: corpus.contentHash, chunks: corpus.chunks.length };
@@ -149,12 +149,12 @@ export async function buildKnowledgeGraph(options: KnowledgeGraphBuildOptions): 
 
   const response = await callClaude({
     apiKey,
-    model: options.kgModel,
+    model: options.digestModel,
     maxTokens: 8192,
     system: [
       {
         type: 'text',
-        text: KG_SYSTEM_PROMPT,
+        text: DIGEST_SYSTEM_PROMPT,
       },
       {
         type: 'text',
@@ -169,25 +169,25 @@ export async function buildKnowledgeGraph(options: KnowledgeGraphBuildOptions): 
           'Emit the context, glossary, one summary per section id, and 3-5 suggested questions. Every id in the corpus must get a summary.',
       },
     ],
-    tools: [KG_TOOL],
+    tools: [DIGEST_TOOL],
     toolChoice: { type: 'tool', name: 'emit_digest' },
   });
 
   const toolUse = response.content.find((block) => block.type === 'tool_use' && block.name === 'emit_digest');
-  const emitted = parseEmittedGraph(toolUse?.type === 'tool_use' ? toolUse.input : null);
-  const graph = assembleGraph(emitted, corpus);
+  const emitted = parseEmittedDigest(toolUse?.type === 'tool_use' ? toolUse.input : null);
+  const digest = assembleDigest(emitted, corpus);
 
-  await writeGraph(outPath, graph);
+  await writeGraph(outPath, digest);
   return { status: 'built', path: outPath, contentHash: corpus.contentHash, chunks: corpus.chunks.length };
 }
 
 /** Shared instruction for the model step, whether it runs via API or a skill. */
-export const KG_SYSTEM_PROMPT =
+export const DIGEST_SYSTEM_PROMPT =
   'You build documentation digests for an AI search agent. Return only the forced tool call. Write a compact orientation, a glossary with aliases real users would type, one tight summary for every section id in the corpus, and 3-5 natural questions a reader might ask that these docs answer. Summaries are what the agent reasons from, so make them faithful and self-contained; paraphrase prose but never restate code, flags, or exact identifiers.';
 
 /** Reads the forced tool call (or a skill's distillation file) into the emit shape. */
-export function parseEmittedGraph(input: unknown): EmittedDistillation {
-  const base = normalizeKnowledgeGraph(input);
+export function parseEmittedDigest(input: unknown): EmittedDistillation {
+  const base = normalizeDigest(input);
   const raw = (input ?? {}) as { summaries?: unknown };
   const summaries = Array.isArray(raw.summaries)
     ? raw.summaries
@@ -202,9 +202,9 @@ export function parseEmittedGraph(input: unknown): EmittedDistillation {
   return { context: base.context, glossary: base.glossary, summaries, suggestions: base.suggestions };
 }
 
-async function writeGraph(outPath: string, graph: KnowledgeGraph): Promise<void> {
+async function writeGraph(outPath: string, digest: Digest): Promise<void> {
   await mkdir(path.dirname(outPath), { recursive: true });
-  await writeFile(outPath, JSON.stringify(graph, null, 2) + '\n', 'utf8');
+  await writeFile(outPath, JSON.stringify(digest, null, 2) + '\n', 'utf8');
 }
 
 /**
@@ -215,19 +215,19 @@ export async function writeCorpusInput(options: {
   siteRoot: string;
   collections: string[] | null;
   basePath: string;
-  kgPath: string;
+  digestPath: string;
   outPath: string;
-  kgContentGlobs?: string[];
+  digestContentGlobs?: string[];
   chunkHeadingDepth: number;
 }): Promise<{ path: string; upToDate: boolean; sections: number }> {
   const corpus = await buildCorpus(options);
-  const committed = await readExistingKg(path.resolve(options.siteRoot, options.kgPath));
+  const committed = await readExistingDigest(path.resolve(options.siteRoot, options.digestPath));
   const upToDate = Boolean(
     committed && committed.version === 2 && committed.contentHash === corpus.contentHash && committed.nodes.length > 0,
   );
-  const payload: KnowledgeGraphInput = {
+  const payload: DigestInput = {
     contentHash: corpus.contentHash,
-    kgPath: options.kgPath,
+    digestPath: options.digestPath,
     upToDate,
     sections: corpusSections(corpus),
   };
@@ -239,36 +239,36 @@ export async function writeCorpusInput(options: {
 
 /**
  * `assemble` command: read a skill-produced distillation, re-chunk the content
- * from disk, and write the committed graph with the deterministic parts computed
+ * from disk, and write the committed digest with the deterministic parts computed
  * in code. Keyless — the model never runs here.
  */
 export async function assembleFromDistillation(options: {
   siteRoot: string;
   collections: string[] | null;
   basePath: string;
-  kgPath: string;
+  digestPath: string;
   inputPath: string;
-  kgContentGlobs?: string[];
+  digestContentGlobs?: string[];
   chunkHeadingDepth: number;
-}): Promise<KnowledgeGraphBuildResult> {
+}): Promise<DigestBuildResult> {
   const inputPath = path.resolve(options.siteRoot, options.inputPath);
   let raw: unknown;
   try {
     raw = JSON.parse(await readFile(inputPath, 'utf8'));
   } catch {
-    throw new Error(`Could not read distillation JSON at ${options.inputPath}. Run \`ask kg corpus\` first.`);
+    throw new Error(`Could not read distillation JSON at ${options.inputPath}. Run \`ask digest corpus\` first.`);
   }
   const corpus = await buildCorpus(options);
-  const graph = assembleGraph(parseEmittedGraph(raw), corpus);
-  const outPath = path.resolve(options.siteRoot, options.kgPath);
-  await writeGraph(outPath, graph);
+  const digest = assembleDigest(parseEmittedDigest(raw), corpus);
+  const outPath = path.resolve(options.siteRoot, options.digestPath);
+  await writeGraph(outPath, digest);
   return { status: 'built', path: outPath, contentHash: corpus.contentHash, chunks: corpus.chunks.length };
 }
 
 /** Assembles section nodes. Everything but `summary` is derived deterministically. */
-export function buildNodes(chunks: Chunk[], summaryById: Map<string, string>): KnowledgeNode[] {
+export function buildNodes(chunks: Chunk[], summaryById: Map<string, string>): DigestNode[] {
   return chunks
-    .map((chunk): KnowledgeNode => {
+    .map((chunk): DigestNode => {
       const facts = extractFacts(chunk.id, chunk.raw);
       const summary = summaryById.get(chunk.id)?.trim() || excerpt(chunk.text);
       const terms = distinctiveTokens(
@@ -317,10 +317,10 @@ export async function buildCorpus(options: {
   siteRoot: string;
   collections: string[] | null;
   basePath: string;
-  kgContentGlobs?: string[];
+  digestContentGlobs?: string[];
   chunkHeadingDepth: number;
 }): Promise<CorpusBuild> {
-  const files = await resolveContentFiles(options.siteRoot, options.collections, options.kgContentGlobs);
+  const files = await resolveContentFiles(options.siteRoot, options.collections, options.digestContentGlobs);
   const documents = await Promise.all(
     files.map(async (file) => {
       const raw = await readFile(file, 'utf8');
@@ -348,9 +348,9 @@ export function sha256(text: string): string {
   return createHash('sha256').update(text).digest('hex');
 }
 
-async function readExistingKg(file: string): Promise<KnowledgeGraph | null> {
+async function readExistingDigest(file: string): Promise<Digest | null> {
   try {
-    return normalizeKnowledgeGraph(JSON.parse(await readFile(file, 'utf8')));
+    return normalizeDigest(JSON.parse(await readFile(file, 'utf8')));
   } catch {
     return null;
   }
@@ -359,12 +359,12 @@ async function readExistingKg(file: string): Promise<KnowledgeGraph | null> {
 async function resolveContentFiles(
   siteRoot: string,
   collections: string[] | null,
-  kgContentGlobs: string[] | undefined,
+  digestContentGlobs: string[] | undefined,
 ): Promise<string[]> {
   const collectionsForDefault = collections?.length ? collections : ['docs'];
   const globs =
-    kgContentGlobs?.length
-      ? kgContentGlobs
+    digestContentGlobs?.length
+      ? digestContentGlobs
       : collectionsForDefault.map((collection) => `src/content/${collection}/**/*.{md,mdx}`);
   const files = new Set<string>();
 

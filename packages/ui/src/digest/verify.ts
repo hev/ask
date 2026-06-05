@@ -4,7 +4,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { buildCorpus } from './build.ts';
 import { extractFacts } from './facts.ts';
-import { normalizeKnowledgeGraph } from './schema.ts';
+import { normalizeDigest } from './schema.ts';
 
 const execFileAsync = promisify(execFile);
 
@@ -12,9 +12,9 @@ export interface VerifyAnchorsOptions {
   siteRoot: string;
   collections: string[] | null;
   basePath: string;
-  kgContentGlobs?: string[];
+  digestContentGlobs?: string[];
   chunkHeadingDepth: number;
-  kgPath?: string;
+  digestPath?: string;
   buildCommand?: string;
   distDir?: string;
   skipBuild?: boolean;
@@ -23,9 +23,9 @@ export interface VerifyAnchorsOptions {
 export interface VerifyAnchorsResult {
   checked: number;
   missing: Array<{ url: string; file: string; anchorId: string }>;
-  /** Source literals that the committed graph dropped from an agent-primary node. */
+  /** Source literals that the committed digest dropped from an agent-primary node. */
   dropped: Array<{ id: string; literal: string }>;
-  /** Section ids present in the corpus but absent from the committed graph. */
+  /** Section ids present in the corpus but absent from the committed digest. */
   uncovered: string[];
 }
 
@@ -65,11 +65,11 @@ async function verifyFidelity(
   options: VerifyAnchorsOptions,
   chunks: Awaited<ReturnType<typeof buildCorpus>>['chunks'],
 ): Promise<{ dropped: VerifyAnchorsResult['dropped']; uncovered: string[] }> {
-  const kgPath = path.resolve(options.siteRoot, options.kgPath ?? '.hev-ask/digest.json');
-  const kg = normalizeKnowledgeGraph(await readJson(kgPath));
-  if (!kg.nodes.length) return { dropped: [], uncovered: [] }; // v1 / degraded graph — nothing to check
+  const digestPath = path.resolve(options.siteRoot, options.digestPath ?? '.hev-ask/digest.json');
+  const digest = normalizeDigest(await readJson(digestPath));
+  if (!digest.nodes.length) return { dropped: [], uncovered: [] }; // v1 / degraded digest — nothing to check
 
-  const nodeById = new Map(kg.nodes.map((node) => [node.id, node]));
+  const nodeById = new Map(digest.nodes.map((node) => [node.id, node]));
   const dropped: VerifyAnchorsResult['dropped'] = [];
   const uncovered: string[] = [];
 

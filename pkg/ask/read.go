@@ -10,16 +10,16 @@ type Overview struct {
 	Context  string `json:"context"`
 }
 
-func ListGlossary(graph KnowledgeGraph) []GlossaryEntry {
-	return graph.Glossary
+func ListGlossary(digest Digest) []GlossaryEntry {
+	return digest.Glossary
 }
 
-func GetGlossaryEntry(graph KnowledgeGraph, term string) (GlossaryEntry, bool) {
+func GetGlossaryEntry(digest Digest, term string) (GlossaryEntry, bool) {
 	needle := normalizeLookup(term)
 	if needle == "" {
 		return GlossaryEntry{}, false
 	}
-	for _, entry := range graph.Glossary {
+	for _, entry := range digest.Glossary {
 		if normalizeLookup(entry.Term) == needle {
 			return entry, true
 		}
@@ -32,10 +32,10 @@ func GetGlossaryEntry(graph KnowledgeGraph, term string) (GlossaryEntry, bool) {
 	return GlossaryEntry{}, false
 }
 
-func ListSectionSummaries(graph KnowledgeGraph, group string) []SectionSummary {
+func ListSectionSummaries(digest Digest, group string) []SectionSummary {
 	wantedGroup := normalizeLookup(group)
-	sections := make([]SectionSummary, 0, len(graph.Nodes))
-	for _, node := range graph.Nodes {
+	sections := make([]SectionSummary, 0, len(digest.Nodes))
+	for _, node := range digest.Nodes {
 		if wantedGroup != "" {
 			nodeGroup := ""
 			if node.Group != nil {
@@ -56,21 +56,21 @@ func ListSectionSummaries(graph KnowledgeGraph, group string) []SectionSummary {
 	return sections
 }
 
-func GetSection(graph KnowledgeGraph, id string) (KnowledgeNode, bool) {
+func GetSection(digest Digest, id string) (DigestNode, bool) {
 	needle := strings.TrimSpace(decodeValue(id))
 	if needle == "" {
-		return KnowledgeNode{}, false
+		return DigestNode{}, false
 	}
-	for _, node := range graph.Nodes {
+	for _, node := range digest.Nodes {
 		if node.ID == needle {
 			return node, true
 		}
 	}
-	return KnowledgeNode{}, false
+	return DigestNode{}, false
 }
 
-func GetOverview(graph KnowledgeGraph) Overview {
-	return Overview{Overview: graph.Overview, Context: graph.Context}
+func GetOverview(digest Digest) Overview {
+	return Overview{Overview: digest.Overview, Context: digest.Context}
 }
 
 func decodeValue(value string) string {

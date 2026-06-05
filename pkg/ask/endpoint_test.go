@@ -22,9 +22,9 @@ func TestEndpointClientReadRoutes(t *testing.T) {
 		status := http.StatusOK
 		switch r.URL.RequestURI() {
 		case "/api/ask/glossary/kg":
-			body, _ = json.Marshal(GlossaryEntry{Term: "knowledge graph"})
+			body, _ = json.Marshal(GlossaryEntry{Term: "knowledge digest"})
 		case "/api/ask/sections/api%2Fcli%23flags":
-			body, _ = json.Marshal(KnowledgeNode{ID: "api/cli#flags", URL: "/docs/api/cli#flags"})
+			body, _ = json.Marshal(DigestNode{ID: "api/cli#flags", URL: "/docs/api/cli#flags"})
 		case "/api/ask/sections?group=API":
 			body, _ = json.Marshal(struct {
 				Sections []SectionSummary `json:"sections"`
@@ -37,7 +37,7 @@ func TestEndpointClientReadRoutes(t *testing.T) {
 	})}
 
 	entry, err := client.GetGlossaryEntry(context.Background(), "kg")
-	if err != nil || entry.Term != "knowledge graph" {
+	if err != nil || entry.Term != "knowledge digest" {
 		t.Fatalf("unexpected glossary response: %#v %v", entry, err)
 	}
 	node, err := client.GetSection(context.Background(), "api/cli#flags")

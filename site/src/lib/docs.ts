@@ -21,7 +21,7 @@ export const docsNav = [
 			"api/endpoint",
 			"api/cli",
 			"api/mcp",
-			"api/knowledge-graph",
+			"api/digest",
 		],
 	},
 ] as const;

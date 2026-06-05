@@ -75,10 +75,10 @@ integrations: [hevAsk(&#123; collections: ["docs"] &#125;)]</code></pre>
 				}
 			</ul>
 
-			<a href="/digest" class="kg-peek">
-				<span class="kg-peek-label">// show, don't tell</span>
+			<a href="/digest" class="digest-peek">
+				<span class="digest-peek-label">// show, don't tell</span>
 				<strong>See what the agent sees →</strong>
-				<span class="kg-peek-note">
+				<span class="digest-peek-note">
 					The rendered ask digest for this site — the distilled summaries and
 					verbatim facts Claude reasons over. Injected, committed, reviewable.
 				</span>
@@ -310,7 +310,7 @@ integrations: [hevAsk(&#123; collections: ["docs"] &#125;)]</code></pre>
 		line-height: 1.5;
 	}
 
-	.kg-peek {
+	.digest-peek {
 		display: block;
 		margin-top: 2.5rem;
 		padding: 1.25rem 1.4rem;
@@ -321,11 +321,11 @@ integrations: [hevAsk(&#123; collections: ["docs"] &#125;)]</code></pre>
 		transition: border-color 0.15s ease;
 	}
 
-	.kg-peek:hover {
+	.digest-peek:hover {
 		border-color: var(--signal);
 	}
 
-	.kg-peek-label {
+	.digest-peek-label {
 		display: block;
 		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
 		font-size: 0.7rem;
@@ -335,13 +335,13 @@ integrations: [hevAsk(&#123; collections: ["docs"] &#125;)]</code></pre>
 		margin-bottom: 0.5rem;
 	}
 
-	.kg-peek strong {
+	.digest-peek strong {
 		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
 		font-size: 1.0625rem;
 		color: var(--ink);
 	}
 
-	.kg-peek-note {
+	.digest-peek-note {
 		display: block;
 		margin-top: 0.4rem;
 		color: var(--muted);

@@ -27,7 +27,7 @@ export interface SourceRef {
  * One distilled, source-grounded section of the docs — the agent's "shadow site"
  * view of a single heading section. `id` equals the originating chunk id.
  */
-export interface KnowledgeNode {
+export interface DigestNode {
   id: string;
   kind: 'section';
   title: string;
@@ -50,13 +50,13 @@ export interface KnowledgeNode {
 }
 
 /** Reserved for the deferred edge layer; ships empty in this version. */
-export interface KnowledgeEdge {
+export interface DigestEdge {
   rel: string;
   from: string;
   to: string;
 }
 
-export interface KnowledgeGraph {
+export interface Digest {
   version: 2;
   generatedAt: string;
   contentHash: string;
@@ -67,11 +67,11 @@ export interface KnowledgeGraph {
   overview: string;
   /** Model-authored example questions the overlay offers on open. */
   suggestions: string[];
-  nodes: KnowledgeNode[];
-  edges: KnowledgeEdge[];
+  nodes: DigestNode[];
+  edges: DigestEdge[];
 }
 
-export const EMPTY_KG: KnowledgeGraph = {
+export const EMPTY_DIGEST: Digest = {
   version: 2,
   generatedAt: '',
   contentHash: '',
@@ -84,26 +84,26 @@ export const EMPTY_KG: KnowledgeGraph = {
 };
 
 const FACT_KINDS = new Set<Fact['kind']>(['flag', 'code', 'value', 'default', 'key']);
-const NODE_MODES = new Set<KnowledgeNode['mode']>(['agent-primary', 'source-primary']);
+const NODE_MODES = new Set<DigestNode['mode']>(['agent-primary', 'source-primary']);
 
 /**
- * Coerces unknown JSON into a KnowledgeGraph. A v1 artifact (`{context,
- * glossary}` with no `nodes`) degrades cleanly to an empty-node v2 graph, so the
+ * Coerces unknown JSON into a Digest. A v1 artifact (`{context,
+ * glossary}` with no `nodes`) degrades cleanly to an empty-node v2 digest, so the
  * runtime falls back to keyword/legacy behavior rather than hard-failing.
  */
-export function normalizeKnowledgeGraph(value: unknown): KnowledgeGraph {
-  if (!value || typeof value !== 'object') return EMPTY_KG;
-  const maybe = value as Partial<KnowledgeGraph>;
+export function normalizeDigest(value: unknown): Digest {
+  if (!value || typeof value !== 'object') return EMPTY_DIGEST;
+  const maybe = value as Partial<Digest>;
   const glossary = Array.isArray(maybe.glossary)
     ? maybe.glossary
         .map((entry) => normalizeGlossaryEntry(entry))
         .filter((entry): entry is GlossaryEntry => entry !== null)
     : [];
   const nodes = Array.isArray(maybe.nodes)
-    ? maybe.nodes.map((node) => normalizeNode(node)).filter((node): node is KnowledgeNode => node !== null)
+    ? maybe.nodes.map((node) => normalizeNode(node)).filter((node): node is DigestNode => node !== null)
     : [];
   const edges = Array.isArray(maybe.edges)
-    ? maybe.edges.map((edge) => normalizeEdge(edge)).filter((edge): edge is KnowledgeEdge => edge !== null)
+    ? maybe.edges.map((edge) => normalizeEdge(edge)).filter((edge): edge is DigestEdge => edge !== null)
     : [];
 
   return {
@@ -132,9 +132,9 @@ function normalizeGlossaryEntry(value: unknown): GlossaryEntry | null {
   };
 }
 
-function normalizeNode(value: unknown): KnowledgeNode | null {
+function normalizeNode(value: unknown): DigestNode | null {
   if (!value || typeof value !== 'object') return null;
-  const maybe = value as Partial<KnowledgeNode>;
+  const maybe = value as Partial<DigestNode>;
   if (typeof maybe.id !== 'string' || typeof maybe.url !== 'string') return null;
   return {
     id: maybe.id,
@@ -177,9 +177,9 @@ function normalizeSource(value: unknown): SourceRef | null {
   };
 }
 
-function normalizeEdge(value: unknown): KnowledgeEdge | null {
+function normalizeEdge(value: unknown): DigestEdge | null {
   if (!value || typeof value !== 'object') return null;
-  const maybe = value as Partial<KnowledgeEdge>;
+  const maybe = value as Partial<DigestEdge>;
   if (typeof maybe.rel !== 'string' || typeof maybe.from !== 'string' || typeof maybe.to !== 'string') return null;
   return { rel: maybe.rel, from: maybe.from, to: maybe.to };
 }
