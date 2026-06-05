@@ -128,7 +128,7 @@ func TestRunKGCorpusAndAssemble(t *testing.T) {
 	if err := run(context.Background(), []string{"kg", "assemble"}, &stdout, &stderr); err != nil {
 		t.Fatalf("assemble failed: %v\nstderr: %s", err, stderr.String())
 	}
-	graph, err := askpkg.LoadGraph(filepath.Join(dir, ".hev-ask/kg.json"))
+	graph, err := askpkg.LoadGraph(filepath.Join(dir, ".hev-ask/digest.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +156,7 @@ func TestRunKGVerifySkipBuild(t *testing.T) {
 		Glossary:  []askpkg.GlossaryEntry{},
 		Summaries: []askpkg.SectionSummaryIn{{ID: "index#install", Summary: "Install ask."}},
 	}, mustCorpus(t, dir))
-	if err := askpkg.WriteGraph(filepath.Join(dir, ".hev-ask/kg.json"), graph); err != nil {
+	if err := askpkg.WriteGraph(filepath.Join(dir, ".hev-ask/digest.json"), graph); err != nil {
 		t.Fatal(err)
 	}
 
@@ -192,7 +192,7 @@ func TestRunKGBuildSkipsCurrentGraph(t *testing.T) {
 	}
 	corpus := mustCorpus(t, dir)
 	graph := askpkg.AssembleGraph(askpkg.EmittedDistillation{Context: "ctx", Glossary: []askpkg.GlossaryEntry{}}, corpus)
-	if err := askpkg.WriteGraph(filepath.Join(dir, ".hev-ask/kg.json"), graph); err != nil {
+	if err := askpkg.WriteGraph(filepath.Join(dir, ".hev-ask/digest.json"), graph); err != nil {
 		t.Fatal(err)
 	}
 

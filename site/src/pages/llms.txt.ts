@@ -13,7 +13,7 @@ export const GET: APIRoute = async () => {
 	lines.push("> A ⌘K search overlay for Astro docs sites.");
 	lines.push("");
 	lines.push(
-		"hev ask is an Astro integration that adds instant keyword search over heading anchors, plus an optional Claude-powered agentic search loop on Enter. The corpus is your content collection; an offline-built, committed knowledge graph gives the loop domain context and a glossary.",
+		"hev ask is an Astro integration that adds instant keyword search over heading anchors, plus an optional Claude-powered agentic search loop on Enter. The corpus is your content collection; an offline-built, committed ask digest gives the loop domain context and a glossary.",
 	);
 	lines.push("");
 	lines.push(`The full concatenated docs are at ${SITE}/llms-full.txt.`);

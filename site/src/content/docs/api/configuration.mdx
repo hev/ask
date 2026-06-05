@@ -1,6 +1,6 @@
 ---
 title: "Configuration"
-description: "Every option for the hevAsk() Astro integration: collections, models, endpoint and basePath, chunking depth, retrieval caps, and knowledge-graph paths, with defaults."
+description: "Every option for the hevAsk() Astro integration: collections, models, endpoint and basePath, chunking depth, retrieval caps, and digest paths, with defaults."
 group: "API"
 order: 0
 ---
@@ -35,14 +35,14 @@ export default defineConfig({
 | `basePath` | `string` | `'/docs/'` | Slug → URL prefix. A doc's URL is `basePath + slug`, plus `#anchor` for a section. |
 | `endpoint` | `string` | `'/api/ask'` | Route the search endpoint is injected at. Must match the overlay's `endpoint` prop if you change it. |
 | `model` | `string` | `'claude-haiku-4-5'` | Claude model for the agentic search loop. |
-| `kgModel` | `string` | `'claude-opus-4-8'` | Model for the offline knowledge-graph builder. |
+| `kgModel` | `string` | `'claude-opus-4-8'` | Model for the offline digest builder. |
 | `maxResults` | `number` | `6` | Source sections the AI answer may ground in and cite (the Sources footer size); also the keyword result row cap. |
 | `answerMaxTokens` | `number` | `1024` | Token budget for the streamed AI answer. |
 | `maxIterations` | `number` | `4` | Maximum `search` tool rounds before the model must stop searching and answer. |
 | `chunkHeadingDepth` | `number` | `3` | Deepest heading used as a chunk boundary. `2` = `##`; `3` = `##` and `###`. |
 | `candidatePerSearch` | `number` | `8` | Chunks returned by each `search` tool call. |
 | `perDocCap` | `number` | `2` | Max chunks from one document returned by a single prefilter call. |
-| `kgPath` | `string` | `'.hev-ask/kg.json'` | Path to the committed knowledge-graph artifact, relative to the site root. |
+| `kgPath` | `string` | `'.hev-ask/digest.json'` | Path to the committed digest artifact, relative to the site root. |
 | `kgContentGlobs` | `string[]` | derived | Globs the offline builder reads. Defaults to Markdown/MDX under each configured collection directory. |
 
 <Callout label="changing the endpoint">
@@ -58,11 +58,11 @@ When Astro starts up (`astro:config:setup`) the integration:
 - injects the `endpoint` route, pointing at `@hev/ask/endpoint`, with
   `prerender: false` so it renders on demand;
 - registers two virtual modules — `virtual:hev-ask/config` (the resolved
-  options) and `virtual:hev-ask/kg` (the committed knowledge graph, inlined);
-- adds `kgPath` as a watched file so dev reloads when the graph changes;
+  options) and `virtual:hev-ask/kg` (the committed digest, inlined);
+- adds `kgPath` as a watched file so dev reloads when the digest changes;
 - warns if `collections` is empty.
 
-At build (`astro:build:start`) it runs the knowledge-graph build when
+At build (`astro:build:start`) it runs the digest build when
 `ANTHROPIC_API_KEY` is present (hash-gated, usually a no-op), and otherwise logs
 a warning and proceeds with the committed artifact. **The build never fails for
 lack of a key.**

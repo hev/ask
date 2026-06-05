@@ -375,7 +375,7 @@ func runAnswer(ctx context.Context, opts options, query string, stdout io.Writer
 }
 
 func parseGlobalFlags(args []string) (options, []string, error) {
-	opts := options{kgPath: ".hev-ask/kg.json", maxResults: 8, basePath: "/docs/", chunkHeadingDepth: 3}
+	opts := options{kgPath: ".hev-ask/digest.json", maxResults: 8, basePath: "/docs/", chunkHeadingDepth: 3}
 	var rest []string
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -679,7 +679,7 @@ func writeVerifyResult(w io.Writer, result askpkg.VerifyResult, strict bool) err
 
 func usage(w io.Writer) {
 	fmt.Fprintln(w, `Usage:
-  ask [--kg-path .hev-ask/kg.json] [--endpoint URL] [--json] <command>
+  ask [--kg-path .hev-ask/digest.json] [--endpoint URL] [--json] <command>
 
 Commands:
   kg build [--kg-model model]

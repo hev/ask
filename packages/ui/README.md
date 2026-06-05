@@ -45,7 +45,7 @@ export default defineConfig({
 | `candidatePerSearch` | `8` | Chunks returned by each search tool call. |
 | `perDocCap` | `2` | Max chunks per document in one prefilter call. |
 | `kgModel` | `claude-opus-4-8` | Offline KG build model. |
-| `kgPath` | `.hev-ask/kg.json` | Committed KG artifact path. |
+| `kgPath` | `.hev-ask/digest.json` | Committed KG artifact path. |
 | `kgContentGlobs` | derived from `collections` | Build-time Markdown/MDX corpus globs. |
 
 ## Add the overlay
@@ -71,7 +71,7 @@ ask kg build
 ask kg verify
 ```
 
-The builder writes `.hev-ask/kg.json`, which should be committed. Builds are
+The builder writes `.hev-ask/digest.json`, which should be committed. Builds are
 hash-gated, so unchanged content does not spend another Opus call. `verify`
 builds the site and checks that every chunk anchor exists in `dist`.
 

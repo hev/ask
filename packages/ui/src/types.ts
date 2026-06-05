@@ -38,7 +38,7 @@ export interface HevAskOptions {
   answerMaxTokens?: number;
 
   /**
-   * Model used by the offline knowledge graph builder.
+   * Model used by the offline digest builder.
    * @default 'claude-opus-4-8'
    */
   kgModel?: string;
@@ -69,8 +69,8 @@ export interface HevAskOptions {
   perDocCap?: number;
 
   /**
-   * Path to the committed knowledge graph artifact, relative to the site root.
-   * @default '.hev-ask/kg.json'
+   * Path to the committed ask digest artifact, relative to the site root.
+   * @default '.hev-ask/digest.json'
    */
   kgPath?: string;
 

@@ -1,6 +1,6 @@
 ---
 title: "Tradeoffs"
-description: "What you're choosing by adopting hev ask: the dependency posture, the committed knowledge graph, the cost and latency of agentic search, and how it compares to Pagefind, Algolia, and Orama."
+description: "What you're choosing by adopting hev ask: the dependency posture, the committed digest, the cost and latency of agentic search, and how it compares to Pagefind, Algolia, and Orama."
 group: "Overview"
 order: 3
 ---
@@ -22,9 +22,9 @@ single search box — readers have to learn that Enter means "ask AI".
 We think that's the right trade for docs, where queries split cleanly into
 "jump to the thing I know exists" and "help me find the thing I can't name."
 
-## A committed knowledge graph
+## A committed digest
 
-The knowledge graph is generated offline and **committed to git** as JSON,
+The digest is generated offline and **committed to git** as JSON,
 rather than computed at runtime or hidden in a service.
 
 - **Upside:** it's reviewable in pull requests, deterministic at runtime, free
@@ -32,7 +32,7 @@ rather than computed at runtime or hidden in a service.
   with no runtime filesystem access.
 - **Cost:** it can go stale. It only regenerates when content changes *and* a
   build runs. hev ask logs a warning when the live content hash differs from
-  the graph's, but a forgotten rebuild means a slightly outdated glossary.
+  the digest's, but a forgotten rebuild means a slightly outdated glossary.
 
 The hash gate makes regeneration cheap and idempotent, so "rebuild on every
 content change in CI" is the intended workflow.
@@ -69,8 +69,8 @@ The agentic path calls Claude. That means real, if small, money and latency:
   seconds). The keyword path stays instant as the fast lane, and
   `maxIterations` is the knob if you want to bound it tighter.
 - **Cost:** one bounded loop per submitted query, on the default Haiku model,
-  with the domain context prompt-cached across rounds. The offline knowledge
-  graph build uses Opus, but the hash gate means you pay for it only when
+  with the domain context prompt-cached across rounds. The offline digest
+  build uses Opus, but the hash gate means you pay for it only when
   content changes.
 
 If you can't or don't want an API key in the loop at all, run keyword-only —

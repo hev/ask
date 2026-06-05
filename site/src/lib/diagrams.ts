@@ -6,13 +6,13 @@ export const askMapDiagram = String.raw`       BUILD TIME (CLI / Skill)         
   ║  glob src/content/docs/**       ║    ║  ┌─── keyword mode · no key ────┐  ║░
   ║   → chunk by heading            ║    ║  │ prefilter chunks + glossary  │  ║░
   ║   → sha256 content hash         ║    ║  └──────────────────────────────┘  ║░
-  ║   → Opus 4.8 builds the graph   ║    ║  ┌──── agentic loop · Haiku ────┐  ║░
-  ║   → write .hev-ask/kg.json      ║    ║  │ system: kg.context (cached)  │  ║░
+  ║   → Opus 4.8 builds the digest  ║    ║  ┌──── agentic loop · Haiku ────┐  ║░
+  ║   → write .hev-ask/digest.json  ║    ║  │ system: kg.context (cached)  │  ║░
   ║                                 ║    ║  │ tool: search(q)  ≤ 4 times   │  ║░
   ╚═════════════════════════════════╝    ║  │ then stream answer, no tools │  ║░
    ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░    ║  │ grounded in /page#anchor     │  ║░
                                          ║  └──────────────────────────────┘  ║░
-     .hev-ask/kg.json  (committed)       ╚════════════════════════════════════╝░
+     .hev-ask/digest.json (committed)    ╚════════════════════════════════════╝░
            │                              ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
            ▼
      virtual:hev-ask/kg  ──── bundled into /api/ask ────▶`;

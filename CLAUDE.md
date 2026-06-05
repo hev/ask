@@ -17,8 +17,11 @@ paths over its content collection:
   loop that issues its own `search` sub-queries, then streams a grounded answer
   (SSE) with inline deep links to the doc sections it drew from.
 
-A committed, offline-built **knowledge graph** (`.hev-ask/kg.json`) gives the
-loop domain context and a glossary.
+A committed, offline-built **ask digest** (`.hev-ask/digest.json`) gives the loop
+domain context and a glossary. The docs call it the digest; `kg` is its
+historical name and survives in code — the `ask kg` command group, `--kg-path`,
+`virtual:hev-ask/kg`. Don't rename those; don't say "knowledge graph" in new
+copy.
 
 ## Repo layout
 
@@ -51,11 +54,11 @@ docs are also the search corpus, so doc edits are product edits.
 - **Anchors come from `github-slugger`** (the one non-Astro dependency) to match
   Astro's rendered `id`s byte-for-byte. `ask kg verify` is the CI gate that
   catches drift — keep it green.
-- **The KG is committed JSON, hash-gated.** `ask kg build` skips the model
+- **The digest is committed JSON, hash-gated.** `ask kg build` skips the model
   call when the content hash is unchanged. Regenerate and commit after content
   changes. It's reviewable on purpose.
 - **Everything degrades, nothing hard-fails:** no key at runtime → keyword
-  mode; no key at build → keep committed KG and warn; no `kg.json` → empty KG.
+  mode; no key at build → keep committed KG and warn; no `digest.json` → empty KG.
 - **The endpoint renders on demand** (`prerender: false`), so consumers need a
   server/hybrid adapter. A static-only build can't serve search.
 - **Default models:** loop = `claude-haiku-4-5`, KG build = `claude-opus-4-8`.

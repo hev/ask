@@ -1,6 +1,6 @@
 ---
 title: "Quick start"
-description: "Add hev ask to an Astro docs site: install the integration and drop in the overlay for keyword search, build the knowledge graph, then add an API key to enable agentic search."
+description: "Add hev ask to an Astro docs site: install the integration and drop in the overlay for keyword search, build the digest, then add an API key to enable agentic search."
 group: "Overview"
 order: 1
 ---
@@ -34,7 +34,7 @@ search UI and skip the key.
   { title: "Register the integration", body: "Add hevAsk() to astro.config.mjs and point it at your collection." },
   { title: "Add an adapter", body: "Install a server/hybrid adapter so /api/ask can render on demand." },
   { title: "Drop in the overlay", body: "Render SearchOverlay.astro once in your layout and add an opener." },
-  { title: "Build the knowledge graph", body: "Use the Claude Code skill (no key) and commit the JSON." },
+  { title: "Build the digest", body: "Use the Claude Code skill (no key) and commit the JSON." },
 ]} />
 
 ### 1. Install
@@ -108,38 +108,38 @@ import SearchOverlay from "@hev/ask/components/SearchOverlay.astro";
 
 Keyword search now works. Run `astro dev`, press `⌘K`, and type.
 
-### 5. Build the knowledge graph
+### 5. Build the digest
 
-The knowledge graph is an offline-built JSON file you commit. It gives the
+The digest is an offline-built JSON file you commit. It gives the
 agentic loop domain context, ranks keyword results, supplies the glossary (so
 `k8s` finds `kubernetes`), and holds the overlay's suggested questions.
 
 **Recommended — the Claude Code skill.** In
 [Claude Code](https://claude.com/claude-code), install the bundled skill and ask
-for it. It builds the graph inside your subscription — **no API key, no token
+for it. It builds the digest inside your subscription — **no API key, no token
 spend**:
 
 ```text
-You: build the hev ask knowledge graph
+You: build the hev ask digest
 
 Claude runs:
   ask kg corpus       # emits the sections to distil
   …writes context/glossary/summaries/suggestions…
-  ask kg assemble     # writes .hev-ask/kg.json
+  ask kg assemble     # writes .hev-ask/digest.json
 ```
 
 **Or use the CLI** — for CI or outside Claude Code, one API call does the same:
 
 ```sh
 export ANTHROPIC_API_KEY=sk-ant-...
-pnpm exec ask kg build      # writes .hev-ask/kg.json
+pnpm exec ask kg build      # writes .hev-ask/digest.json
 ```
 
 Then verify and commit, however you built it:
 
 ```sh
 pnpm exec ask kg verify     # builds the site, checks every anchor resolves
-git add .hev-ask/kg.json
+git add .hev-ask/digest.json
 ```
 
 Both paths are **hash-gated** — no model work when content is unchanged — and the

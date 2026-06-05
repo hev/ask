@@ -12,7 +12,7 @@ export interface Candidate {
 }
 
 /**
- * Distinctive tokens the knowledge graph carries for a section: its `terms`, the
+ * Distinctive tokens the digest carries for a section: its `terms`, the
  * tokens of its distilled `summary`, and the tokens of its verbatim `facts`. A
  * query term hitting any of these means the graph considers that section central
  * to the term, so it earns a ranking boost over an incidental body mention.
@@ -31,7 +31,7 @@ function nodeSignal(nodes: KnowledgeNode[] | undefined): Map<string, Set<string>
 
 /**
  * Keyword prefilter over heading chunks. Query terms are widened through the
- * knowledge graph glossary, scored by token overlap — boosted by the graph's
+ * digest glossary, scored by token overlap — boosted by the digest's
  * distilled per-section signal when `nodes` are present — then capped per
  * document so one page cannot crowd out the rest of the result set. With no
  * nodes it degrades to plain token overlap over the raw chunk text.

@@ -1,6 +1,6 @@
 ---
 title: "Introduction"
-description: "hev ask builds a committed knowledge graph from your Astro docs and serves it two ways: a ⌘K answer overlay for readers, and an `ask` CLI + MCP server so your coding agent can query the same docs."
+description: "hev ask distills your Astro docs into a committed ask digest and serves it two ways: a ⌘K answer overlay for readers, and an `ask` CLI + MCP server so your coding agent can query the same docs."
 group: "Overview"
 order: 0
 ---
@@ -9,21 +9,22 @@ import Diagram from "../../components/docs/Diagram.astro";
 import Callout from "../../components/docs/Callout.astro";
 import { askMapDiagram } from "../../lib/diagrams";
 
-**hev ask** turns an [Astro](https://astro.build) docs site into a small
-**knowledge graph** — one distilled, source-grounded entry per heading section,
-plus a glossary — and then serves that graph to whoever needs to read your docs:
-a human pressing `⌘K`, or a coding agent working in your repo.
+**hev ask** distills an [Astro](https://astro.build) docs site into an
+**ask digest** — a token-efficient form of your docs, designed for agents to
+discover progressively through the `ask` CLI and for readers through a `⌘K`
+overlay.
 
-The graph is built **offline** and **committed to your repo** as
-`.hev-ask/kg.json` — reviewable JSON that's the single source everything else
-reads.
+Build the digest **offline** with the bundled skill (and your Claude Code
+subscription), then serve single-turn Q&A over your docs for a few cents per
+query. Perfect for technical documentation, internal wikis, and other
+medium-sized corpora.
 
 <Diagram label="hev ask architecture">{askMapDiagram}</Diagram>
 
 ## Build it with your coding agent
 
-The knowledge graph is built **inside your coding agent** — the bundled Claude
-Code skill generates `.hev-ask/kg.json` using your existing **agentic coding
+The digest is built **inside your coding agent** — the bundled Claude
+Code skill generates `.hev-ask/digest.json` using your existing **agentic coding
 subscription**, so there's no `ANTHROPIC_API_KEY` and no per-build token spend.
 Commit the JSON, drop `SearchOverlay.astro` into a layout, and your site has
 search — instant keyword results as readers type, plus a Claude answer loop on
@@ -32,7 +33,7 @@ Enter, every result deep-linked to the exact heading.
 <Callout label="the corpus is your collection">
 hev ask only reads the Astro content collection(s) you configure. There's no
 crawler, no external index, and nothing to keep in sync — the docs you render
-*are* the graph, and the committed `kg.json` is reviewable in every PR.
+*are* the digest, and the committed `digest.json` is reviewable in every PR.
 </Callout>
 
 ## Who this is for
@@ -55,9 +56,9 @@ the loop, [Pagefind](https://pagefind.app) is simpler and a great fit — see
 
 - [Quick start](/docs/quickstart) — add search to your site in five minutes.
 - [Concepts](/docs/concepts) — chunks, anchors, the agentic loop, and the
-  knowledge graph.
+  ask digest.
 - [Tradeoffs](/docs/tradeoffs) and [Limits](/docs/limits) — what you're choosing,
   and what hev ask deliberately doesn't do.
-- [CLI](/docs/api/cli) — build, verify, and query the graph from `ask`.
+- [CLI](/docs/api/cli) — build, verify, and query the digest from `ask`.
 - [API reference](/docs/api/configuration) — every option, the component props,
   and the endpoint contract.

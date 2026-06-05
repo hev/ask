@@ -79,8 +79,8 @@ doesn't escalate to the model.
 
 When AI is on, the overlay fetches a short list of suggested questions from the
 endpoint (`GET /api/ask`) the first time it opens and shows them in the empty
-state. They come from the knowledge graph's `suggestions`, baked in at build
-time, so there's **no model call to render them** — and if the graph has none,
+state. They come from the digest's `suggestions`, baked in at build
+time, so there's **no model call to render them** — and if the digest has none,
 the overlay simply shows nothing extra. Clicking a suggestion fills the input and
 asks it immediately.
 

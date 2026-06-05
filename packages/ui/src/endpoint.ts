@@ -225,7 +225,7 @@ async function warnIfStale(chunks: Chunk[]) {
   staleWarningIssued = true;
   const hash = await sha256Hex(hashableChunkText(chunks)).catch(() => '');
   if (hash && hash !== kg.contentHash) {
-    console.warn('[hev-ask] Knowledge graph content hash is stale; run `ask kg build` to refresh it.');
+    console.warn('[hev-ask] Digest content hash is stale; run `ask kg build` to refresh it.');
   }
 }
 

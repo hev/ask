@@ -1,6 +1,6 @@
 ---
 title: "CLI"
-description: "The ask CLI reads, builds, verifies, and serves the committed knowledge graph for agents and CI."
+description: "The ask CLI reads, builds, verifies, and serves the committed ask digest for agents and CI."
 group: "API"
 order: 3
 ---
@@ -9,25 +9,25 @@ import Callout from "../../../components/docs/Callout.astro";
 
 `@hev/ask` ships the `ask` binary. It has two command groups:
 
-- **Consumer commands** read the committed graph for agents:
-  `glossary`, `sections`, `section get`, `overview`, `search`, `answer`, and
-  `mcp`.
-- **Producer commands** live under `ask kg`: `build`, `corpus`, `assemble`, and
-  `verify`.
+- **Consumer commands** are progressive disclosure over the committed digest,
+  as verbs: skim (`overview`, `glossary`), find (`search`, `sections`), open
+  (`section get`), ask (`answer`), or serve the lot to an agent (`mcp`).
+- **Producer commands** live under `ask kg` — `kg` is the digest's historical
+  name: `build`, `corpus`, `assemble`, and `verify`.
 
 `hev-ask-kg` is kept as a deprecated compatibility alias for one minor cycle.
 It forwards to `ask kg ...` and prints a one-line migration notice.
 
-## Reading the graph
+## Reading the digest
 
-By default, `ask` reads `.hev-ask/kg.json` from the current repo. Pass
+By default, `ask` reads `.hev-ask/digest.json` from the current repo. Pass
 `--endpoint <url>` to read from a deployed site's HTTP API instead.
 
 ```sh
 ask glossary list
-ask glossary get "knowledge graph"
+ask glossary get "ask digest"
 ask sections list --group API
-ask section get api/endpoint#knowledge-graph-reads-get
+ask section get api/endpoint#digest-reads-get
 ask overview
 ask search "read endpoints"
 ask --endpoint https://askhev.com/api/ask answer "what read routes exist?"
@@ -37,32 +37,32 @@ ask mcp
 `ask answer` uses the deployed endpoint's agentic SSE path, so it requires
 `--endpoint`. For keyless local retrieval, use `ask search`.
 
-## Building the graph
+## Building the digest
 
 Run producer commands from the Astro site root:
 
 ```sh
 ask kg build        # one-shot build; needs ANTHROPIC_API_KEY only when stale
 ask kg corpus       # emit sections for a keyless skill/model distillation
-ask kg assemble     # assemble .hev-ask/kg.json from that distillation
+ask kg assemble     # assemble .hev-ask/digest.json from that distillation
 ask kg verify       # build the site and verify anchors, coverage, fidelity
 ```
 
-`ask kg build` is hash-gated. If the committed graph already matches the corpus,
-it exits without calling the model. Otherwise it asks the KG model for the
-distillation and writes `.hev-ask/kg.json`.
+`ask kg build` is hash-gated. If the committed digest already matches the
+corpus, it exits without calling the model. Otherwise it asks the build model
+for the distillation and writes `.hev-ask/digest.json`.
 
 `ask kg corpus` writes `.hev-ask/kg-input.json`; `ask kg assemble` reads
-`.hev-ask/kg-distill.json` and writes `.hev-ask/kg.json`. These commands expose
+`.hev-ask/kg-distill.json` and writes `.hev-ask/digest.json`. These commands expose
 the same deterministic seam used by the bundled Claude Code skill: the model
 authors only `context`, `glossary`, per-section `summaries`, and `suggestions`.
 Chunking, facts, overview, node sources, and the content hash are computed in
 code.
 
 `ask kg verify` builds the site unless `--skip-build` is set, then checks
-rendered heading anchors, graph coverage, and literal fidelity against the
-committed graph. Anchor drift is always fatal; coverage and literal-fidelity are
-warnings unless `--strict` is set.
+rendered heading anchors, digest coverage, and literal fidelity against the
+committed digest. Anchor drift is always fatal; coverage and literal-fidelity
+are warnings unless `--strict` is set.
 
 ## Package scripts
 
@@ -82,24 +82,24 @@ working through the alias, but new scripts should use `ask kg`.
 
 ## Claude Code skill
 
-The bundled `build-kg` skill can build a graph without using your
+The bundled `build-digest` skill can build the digest without using your
 `ANTHROPIC_API_KEY`. It runs the deterministic producer seam:
 
 ```text
 ask kg corpus       -> .hev-ask/kg-input.json
 ...writes .hev-ask/kg-distill.json...
-ask kg assemble     -> .hev-ask/kg.json
+ask kg assemble     -> .hev-ask/digest.json
 ```
 
-Because the model step runs inside your Claude Code subscription, the graph
-build costs no API tokens on your own key. The resulting `kg.json` has the same
+Because the model step runs inside your Claude Code subscription, the digest
+build costs no API tokens on your own key. The resulting `digest.json` has the same
 shape as `ask kg build` output, and the same hash gate applies.
 
 ## Flags
 
 | Flag | Default | Description |
 |---|---|---|
-| `--kg-path <path>` | `.hev-ask/kg.json` | Local graph path for reads; output/input path for producer commands. |
+| `--kg-path <path>` | `.hev-ask/digest.json` | Local digest path for reads; output/input path for producer commands. |
 | `--endpoint <url>` | - | Remote `/api/ask` base URL for read commands and `answer`. |
 | `--json` | automatic for non-TTY in the standalone CLI | Force machine-readable JSON output. |
 | `--max-results <n>` | `8` | Local search result cap. |
@@ -117,7 +117,7 @@ shape as `ask kg build` output, and the same hash gate applies.
 Global flags come before the command:
 
 ```sh
-ask --kg-path .hev-ask/kg.json --json search "openapi"
+ask --kg-path .hev-ask/digest.json --json search "openapi"
 ask --endpoint https://askhev.com/api/ask mcp
 ask kg build --collection docs --collection guides --chunk-heading-depth 2
 ask kg verify --skip-build
@@ -129,20 +129,20 @@ ask kg verify --skip-build
 `glossary_list`, `glossary_get`, `sections_list`, `section_get`, `overview`,
 `search`, and `answer`.
 
-Use local graph reads for checked-out repos:
+Use local digest reads for checked-out repos:
 
 ```json
 {
   "mcpServers": {
     "docs": {
       "command": "ask",
-      "args": ["--kg-path", ".hev-ask/kg.json", "mcp"]
+      "args": ["--kg-path", ".hev-ask/digest.json", "mcp"]
     }
   }
 }
 ```
 
-Use a deployed endpoint when the agent needs the remote graph or `answer`:
+Use a deployed endpoint when the agent needs the remote digest or `answer`:
 
 ```json
 {
@@ -164,7 +164,7 @@ control, or mount the dependency-free command group in your own CLI.
 
 ```go
 group := ask.NewCommandGroup(ask.CommandOptions{
-	KGPath: ".hev-ask/kg.json",
+	KGPath: ".hev-ask/digest.json",
 })
 err := group.Run(ctx, []string{"search", "read endpoints"}, os.Stdin, os.Stdout, os.Stderr)
 ```
@@ -192,8 +192,8 @@ binary path.
 The producer commands run locally or in CI with filesystem access. The Astro
 integration also invokes `ask kg build` during `astro build` when
 `ANTHROPIC_API_KEY` is present, then falls back to the committed artifact if the
-build command cannot run. The deployed site reads the committed graph through
-`virtual:hev-ask/kg`; it does not need filesystem access for graph reads.
+build command cannot run. The deployed site reads the committed digest through
+`virtual:hev-ask/kg`; it does not need filesystem access for digest reads.
 
 <Callout label="put verify in CI">
 Anchor correctness is the contract that makes deep links trustworthy. Running

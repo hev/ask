@@ -54,7 +54,7 @@ type mcpServer struct {
 
 func ServeMCP(ctx context.Context, options MCPOptions, in io.Reader, out io.Writer) error {
 	if options.KGPath == "" {
-		options.KGPath = ".hev-ask/kg.json"
+		options.KGPath = ".hev-ask/digest.json"
 	}
 	if options.MaxResults <= 0 {
 		options.MaxResults = 8
@@ -148,7 +148,7 @@ func mcpTools() []map[string]any {
 	return []map[string]any{
 		{
 			"name":        "glossary_list",
-			"description": "List glossary terms and aliases from the hev ask knowledge graph.",
+			"description": "List glossary terms and aliases from the hev ask digest.",
 			"inputSchema": objectSchema(nil, nil),
 		},
 		{
@@ -160,14 +160,14 @@ func mcpTools() []map[string]any {
 		},
 		{
 			"name":        "sections_list",
-			"description": "List section summaries from the knowledge graph, optionally filtered by group.",
+			"description": "List section summaries from the digest, optionally filtered by group.",
 			"inputSchema": objectSchema(map[string]any{
 				"group": stringSchema("Optional section group filter."),
 			}, nil),
 		},
 		{
 			"name":        "section_get",
-			"description": "Get one knowledge graph section node by id.",
+			"description": "Get one digest section node by id.",
 			"inputSchema": objectSchema(map[string]any{
 				"id": stringSchema("Section id, such as api/cli#flags."),
 			}, []string{"id"}),
@@ -179,7 +179,7 @@ func mcpTools() []map[string]any {
 		},
 		{
 			"name":        "search",
-			"description": "Run local keyword search over the knowledge graph, or remote keyword search with --endpoint.",
+			"description": "Run local keyword search over the digest, or remote keyword search with --endpoint.",
 			"inputSchema": objectSchema(map[string]any{
 				"query":      stringSchema("Search query."),
 				"maxResults": map[string]any{"type": "integer", "minimum": 1, "description": "Maximum local results."},

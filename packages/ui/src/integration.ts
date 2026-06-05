@@ -13,7 +13,7 @@ const execFileAsync = promisify(execFile);
 
 /**
  * Astro integration that mounts the hev ask endpoint and exposes resolved
- * configuration plus the committed knowledge graph through virtual modules.
+ * configuration plus the committed ask digest through virtual modules.
  */
 export default function hevAsk(options: HevAskOptions = {}): AstroIntegration {
   const config: ResolvedConfig = {
@@ -28,7 +28,7 @@ export default function hevAsk(options: HevAskOptions = {}): AstroIntegration {
     chunkHeadingDepth: options.chunkHeadingDepth ?? 3,
     candidatePerSearch: options.candidatePerSearch ?? 8,
     perDocCap: options.perDocCap ?? 2,
-    kgPath: options.kgPath ?? '.hev-ask/kg.json',
+    kgPath: options.kgPath ?? '.hev-ask/digest.json',
     kgContentGlobs: options.kgContentGlobs,
   };
 
@@ -68,7 +68,7 @@ export default function hevAsk(options: HevAskOptions = {}): AstroIntegration {
           const output = await runKnowledgeGraphBuild(siteRoot, config);
           if (output) logger.info(output);
         } catch (err) {
-          logger.warn(`knowledge graph build failed; using committed artifact if present. ${(err as Error).message}`);
+          logger.warn(`digest build failed; using committed artifact if present. ${(err as Error).message}`);
         }
       },
     },

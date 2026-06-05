@@ -10,7 +10,7 @@ const facts = [
 
 <Base
 	title="hev ask - search for Astro docs sites"
-	description="A ⌘K search overlay for Astro docs sites: instant keyword search anchored to headings, plus a Claude-powered search loop on Enter. One integration, one component."
+	description="A ⌘K search overlay for Astro docs sites, built on an ask digest — a token-efficient distillation of your docs. Instant keyword search anchored to headings, a grounded Claude answer on Enter. One integration, one component."
 	current="product"
 >
 	<main>
@@ -18,9 +18,9 @@ const facts = [
 			<p class="kicker">// search for astro docs sites</p>
 			<h1>The AI search cheat code<br />for your docs.</h1>
 			<p class="lede">
-				A <span class="mono">⌘K</span> search overlay for Astro. Instant keyword
-				search as the reader types, a Claude search loop on Enter — every result
-				a deep link to the exact heading.
+				A <span class="mono">⌘K</span> overlay for Astro, built on an
+				<strong>ask digest</strong> — a token-efficient distillation of your
+				docs, read progressively by agents and searched instantly by readers.
 			</p>
 			<div class="cta-row">
 				<a href="/docs" class="btn">Read the docs</a>
@@ -31,10 +31,10 @@ const facts = [
 
 			<figure class="hero-art">
 				<img
-					src="/kg.png"
-					width="1640"
-					height="916"
-					alt="A knowledge graph rendered as connected terminal-card nodes on warm paper; an orange ⌘K beam threads a single path through search, integrations, authentication, and endpoints to an opened section anchored at #api/endpoints/create."
+					src="/digest.png"
+					width="1376"
+					height="768"
+					alt="A stack of documentation pages distilled into a compact digest.json index card on warm paper; an orange ⌘K beam reads it progressively — skims the index, lifts one summary line, and unfolds it into a full section anchored at #api/endpoints/create."
 					loading="eager"
 				/>
 			</figure>
@@ -75,11 +75,11 @@ integrations: [hevAsk(&#123; collections: ["docs"] &#125;)]</code></pre>
 				}
 			</ul>
 
-			<a href="/kg" class="kg-peek">
+			<a href="/digest" class="kg-peek">
 				<span class="kg-peek-label">// show, don't tell</span>
 				<strong>See what the agent sees →</strong>
 				<span class="kg-peek-note">
-					The rendered knowledge graph for this site — the distilled summaries and
+					The rendered ask digest for this site — the distilled summaries and
 					verbatim facts Claude reasons over. Injected, committed, reviewable.
 				</span>
 			</a>

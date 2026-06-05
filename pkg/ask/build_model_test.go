@@ -16,7 +16,7 @@ func TestBuildKnowledgeGraphSkipsCurrentGraphWithoutAPIKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	graph := AssembleGraph(EmittedDistillation{Context: "ctx", Glossary: []GlossaryEntry{}, Summaries: []SectionSummaryIn{}}, corpus)
-	if err := WriteGraph(filepath.Join(root, ".hev-ask/kg.json"), graph); err != nil {
+	if err := WriteGraph(filepath.Join(root, ".hev-ask/digest.json"), graph); err != nil {
 		t.Fatal(err)
 	}
 	result, err := BuildKnowledgeGraph(BuildKnowledgeGraphOptions{BuildOptions: options})
@@ -53,7 +53,7 @@ func TestBuildKnowledgeGraphCallsAnthropicAndWritesGraph(t *testing.T) {
 			"content": []map[string]any{
 				{
 					"type": "tool_use",
-					"name": "emit_knowledge_graph",
+					"name": "emit_digest",
 					"input": map[string]any{
 						"context": "Fixture docs.",
 						"glossary": []map[string]any{
@@ -83,7 +83,7 @@ func TestBuildKnowledgeGraphCallsAnthropicAndWritesGraph(t *testing.T) {
 	if result.Status != "built" {
 		t.Fatalf("unexpected result: %#v", result)
 	}
-	graph, err := LoadGraph(filepath.Join(root, ".hev-ask/kg.json"))
+	graph, err := LoadGraph(filepath.Join(root, ".hev-ask/digest.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

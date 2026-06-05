@@ -32,9 +32,9 @@ export interface KnowledgeGraphBuildResult {
 }
 
 const KG_TOOL: AnthropicTool = {
-  name: 'emit_knowledge_graph',
+  name: 'emit_digest',
   description:
-    'Emit a documentation knowledge graph: a compact orientation, a glossary, and one distilled summary per section.',
+    'Emit a documentation digest: a compact orientation, a glossary, and one distilled summary per section.',
   input_schema: {
     type: 'object',
     properties: {
@@ -94,7 +94,7 @@ export interface EmittedDistillation {
 export interface KnowledgeGraphInput {
   contentHash: string;
   kgPath: string;
-  /** True when the committed kg.json already matches this corpus — no rebuild needed. */
+  /** True when the committed digest.json already matches this corpus — no rebuild needed. */
   upToDate: boolean;
   sections: Array<{ id: string; url: string; title: string; text: string }>;
 }
@@ -141,7 +141,7 @@ export async function buildKnowledgeGraph(options: KnowledgeGraphBuildOptions): 
   }
 
   const apiKey = options.apiKey ?? process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is required to build a fresh knowledge graph.');
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is required to build a fresh digest.');
 
   const corpusText = corpusSections(corpus)
     .map((section) => `id: ${section.id}\nurl: ${section.url}\ntitle: ${section.title}\n\n${section.text}`)
@@ -170,10 +170,10 @@ export async function buildKnowledgeGraph(options: KnowledgeGraphBuildOptions): 
       },
     ],
     tools: [KG_TOOL],
-    toolChoice: { type: 'tool', name: 'emit_knowledge_graph' },
+    toolChoice: { type: 'tool', name: 'emit_digest' },
   });
 
-  const toolUse = response.content.find((block) => block.type === 'tool_use' && block.name === 'emit_knowledge_graph');
+  const toolUse = response.content.find((block) => block.type === 'tool_use' && block.name === 'emit_digest');
   const emitted = parseEmittedGraph(toolUse?.type === 'tool_use' ? toolUse.input : null);
   const graph = assembleGraph(emitted, corpus);
 
@@ -183,7 +183,7 @@ export async function buildKnowledgeGraph(options: KnowledgeGraphBuildOptions): 
 
 /** Shared instruction for the model step, whether it runs via API or a skill. */
 export const KG_SYSTEM_PROMPT =
-  'You build documentation knowledge graphs for an AI search agent. Return only the forced tool call. Write a compact orientation, a glossary with aliases real users would type, one tight summary for every section id in the corpus, and 3-5 natural questions a reader might ask that these docs answer. Summaries are what the agent reasons from, so make them faithful and self-contained; paraphrase prose but never restate code, flags, or exact identifiers.';
+  'You build documentation digests for an AI search agent. Return only the forced tool call. Write a compact orientation, a glossary with aliases real users would type, one tight summary for every section id in the corpus, and 3-5 natural questions a reader might ask that these docs answer. Summaries are what the agent reasons from, so make them faithful and self-contained; paraphrase prose but never restate code, flags, or exact identifiers.';
 
 /** Reads the forced tool call (or a skill's distillation file) into the emit shape. */
 export function parseEmittedGraph(input: unknown): EmittedDistillation {

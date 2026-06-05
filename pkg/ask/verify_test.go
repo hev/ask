@@ -56,7 +56,7 @@ func TestVerifyAnchorsChecksCoverageAndLiteralFidelity(t *testing.T) {
 		}
 	}
 	graph.Nodes = graph.Nodes[:len(graph.Nodes)-1]
-	if err := WriteGraph(filepath.Join(root, ".hev-ask/kg.json"), graph); err != nil {
+	if err := WriteGraph(filepath.Join(root, ".hev-ask/digest.json"), graph); err != nil {
 		t.Fatal(err)
 	}
 

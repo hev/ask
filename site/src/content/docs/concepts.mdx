@@ -1,6 +1,6 @@
 ---
 title: "Concepts"
-description: "How hev ask works: heading-chunk indexing with real anchors, keyword prefiltering widened by a glossary, the bounded agentic search loop, and the offline knowledge graph."
+description: "How hev ask works: heading-chunk indexing with real anchors, keyword prefiltering widened by a glossary, the bounded agentic search loop, and the offline ask digest it reads progressively."
 group: "Overview"
 order: 2
 ---
@@ -9,14 +9,15 @@ import Diagram from "../../components/docs/Diagram.astro";
 import Callout from "../../components/docs/Callout.astro";
 import { askMapDiagram } from "../../lib/diagrams";
 
-hev ask is three parts: a **heading-chunk index** with real anchors, a
-**bounded agentic loop** that navigates a knowledge graph, and that offline
-**knowledge graph** — a distilled, source-grounded "shadow site" the loop reads
-from. This page explains each and how they fit together.
+hev ask is three parts: a **heading-chunk index** with real anchors, an offline
+**ask digest** — a distilled, source-grounded index of every section — and a
+**bounded agentic loop** that reads the digest **progressively**: primer first,
+summaries next, full source only when needed. This page explains each and how
+they fit together.
 
 <Diagram label="build time versus runtime">{askMapDiagram}</Diagram>
 
-The split that matters: the knowledge graph is built **offline** with a strong
+The split that matters: the digest is built **offline** with a strong
 model and committed to git; the index and search loop run **on demand** at the
 edge. No durable state lives in the running site.
 
@@ -51,16 +52,16 @@ When the reader types a single term, the server runs a dependency-free
    `kubernetes`) and the tokens of any matched glossary term. The expansion is
    additive and capped.
 2. **Score by token overlap** between the expanded query and each chunk —
-   **widened by the knowledge graph**. When a `kg.json` with nodes is present, a
+   **widened by the digest**. When a `digest.json` with nodes is present, a
    match also counts against that section's distilled `summary`, its `terms`,
-   and its verbatim `facts`, so the sections the graph considers central to a
+   and its verbatim `facts`, so the sections the digest considers central to a
    term rank above an incidental mention buried in body prose.
 3. **Cap per document** (default 2 chunks per doc) so one long page can't
    monopolize the results, then take the top pool.
 4. **Excerpt** around the first matched term for the snippet.
 
 This is the instant path. It needs no API key and no embeddings — just the
-chunk index and the committed graph. With **no graph** it degrades to plain
+chunk index and the committed digest. With **no digest** it degrades to plain
 token overlap over the raw chunk text, so keyword search always works.
 
 ## Asking is the default
@@ -69,7 +70,7 @@ The overlay is **ask-first**. A single word is treated as a keyword lookup and
 answered instantly from the index. The moment the query grows past one word — the
 reader types a **space** — the overlay stops the keyword type-ahead and switches
 to **ask mode**: pressing Enter sends the question to the agentic loop. On open
-it also shows a few **suggested questions** (baked into the knowledge graph at
+it also shows a few **suggested questions** (baked into the digest at
 build time, so they cost nothing at runtime) to make asking the obvious move.
 
 None of this is forced. A reader can flip the overlay to **keyword-only**
@@ -81,7 +82,9 @@ the exact interaction.
 
 When the reader asks (presses Enter on a multi-word query, or clicks a suggested
 question, with an API key present), the query goes to a **bounded tool-use loop**
-that ends by **streaming a grounded answer**. It runs in two phases.
+that ends by **streaming a grounded answer**. The loop is **progressive
+disclosure** over the digest: the primer and section map come free in the
+prompt; everything deeper is opened on demand. It runs in two phases.
 
 **Phase 1 — gather.** The model is given a **map** of every section (id +
 summary) up front, plus one tool:
@@ -111,16 +114,17 @@ it cannot ground in what retrieval never found. That ceiling is discussed in
 
 ### The system prompt is cached
 
-The knowledge graph's map and section summaries are injected into the system
+The digest's map and section summaries are injected into the system
 prompt with a `cache_control` marker, so across the rounds it's a prompt-cache
 hit rather than re-sent tokens. The answer turn changes the tool set (it has none),
 so it can't reuse the search rounds' cache — but it's the last call anyway. The
 loop model defaults to **Claude Haiku 4.5** and is configurable.
 
-## The knowledge graph
+## The ask digest
 
-The knowledge graph (`kg.json`) is built **offline** and committed to your repo
-as a reviewable artifact — the agent's view of your docs. It holds:
+The ask digest (`digest.json`) is built
+**offline** and committed to your repo as a reviewable artifact — the agent's
+view of your docs. It holds:
 
 - **`nodes`** — one distilled section per heading: a `summary` the agent reasons
   from, the verbatim `facts` (flags, code, identifiers) it quotes exactly, and a
@@ -142,7 +146,7 @@ distillation — which is exactly the part worth doing in a **Claude Code skill*
 The model step can run two ways, and both feed the same deterministic assembler:
 
 - **Claude Code skill (recommended).** A skill walks Claude through reading the
-  corpus and writing the distillation, then assembles `kg.json` locally. It runs
+  corpus and writing the distillation, then assembles `digest.json` locally. It runs
   inside your existing Claude Code subscription — **no `ANTHROPIC_API_KEY`, no
   per-build token spend on your own key**, and it fits the editor workflow most
   authors are already in.
@@ -151,9 +155,9 @@ The model step can run two ways, and both feed the same deterministic assembler:
   choice for CI or anyone not using Claude Code.
 
 Either way the build is **hash-gated**: it hashes the concatenated chunk text
-and, if a committed `kg.json` with nodes already matches that hash, it does no
+and, if a committed `digest.json` with nodes already matches that hash, it does no
 model work at all. The JSON is reviewed in pull requests like any other change.
-See the [knowledge graph reference](/docs/api/knowledge-graph) and the
+See the [digest reference](/docs/api/knowledge-graph) and the
 [CLI reference](/docs/api/cli) for the file format and the build commands.
 
 ## Degradation, by design
@@ -161,13 +165,13 @@ See the [knowledge graph reference](/docs/api/knowledge-graph) and the
 hev ask is built to keep working as pieces drop away:
 
 - **No key at runtime** → keyword mode only. The overlay still searches.
-- **No key at build** → the committed `kg.json` is kept; the build warns but
+- **No key at build** → the committed `digest.json` is kept; the build warns but
   never fails for lack of a key.
-- **No `kg.json`, or an older node-less one** → the agentic loop falls back to
+- **No `digest.json`, or an older node-less one** → the agentic loop falls back to
   keyword-style retrieval; keyword ranking falls back to raw token overlap; and
   the overlay simply shows no suggested questions. Everything still works.
-- **Stale `kg.json`** → the runtime logs a one-line warning when the live index
-  hash differs from the graph's hash, but still serves.
+- **Stale `digest.json`** → the runtime logs a one-line warning when the live index
+  hash differs from the digest's hash, but still serves.
 
 For the boundaries of what it can do, read [Limits](/docs/limits); for what
 you're choosing by adopting it, read [Tradeoffs](/docs/tradeoffs).

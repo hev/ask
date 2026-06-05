@@ -22,7 +22,7 @@ type CommandGroup struct {
 
 func NewCommandGroup(options CommandOptions) CommandGroup {
 	if options.KGPath == "" {
-		options.KGPath = ".hev-ask/kg.json"
+		options.KGPath = ".hev-ask/digest.json"
 	}
 	if options.MaxResults <= 0 {
 		options.MaxResults = 8
@@ -366,7 +366,7 @@ func parseCommandValueFlag(args []string, name string) (string, []string, error)
 
 func writeCommandUsage(w io.Writer) {
 	fmt.Fprintln(w, `Usage:
-  <command> [--kg-path .hev-ask/kg.json] [--endpoint URL] [--json]
+  <command> [--kg-path .hev-ask/digest.json] [--endpoint URL] [--json]
 
 Commands:
   glossary list

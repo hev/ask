@@ -9,6 +9,8 @@ import hevAsk from "@hev/ask";
 export default defineConfig({
 	site: "https://askhev.com",
 	devToolbar: { enabled: false },
+	// The digest page lived at /kg before the rename; keep old links working.
+	redirects: { "/kg": "/digest" },
 	// Pinned lane so dev fails loudly instead of hopping a neighbour's port.
 	server: { port: 4334, strictPort: true },
 	adapter: cloudflare({ platformProxy: { enabled: true } }),

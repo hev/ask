@@ -1,13 +1,13 @@
 ---
 title: "MCP server"
-description: "Run ask mcp to expose the committed knowledge graph as MCP tools for coding agents."
+description: "Run ask mcp to expose the committed digest as MCP tools for coding agents."
 group: "API"
 order: 4
 ---
 
 `ask mcp` runs a stdio Model Context Protocol server over the same graph reads
 as the CLI and HTTP API. It is the zero-glue path for coding agents: point the
-agent at a checked-out repo's `.hev-ask/kg.json`, or at a deployed `/api/ask`
+agent at a checked-out repo's `.hev-ask/digest.json`, or at a deployed `/api/ask`
 endpoint, and the agent gets structured tools for your docs.
 
 ## Configure
@@ -19,7 +19,7 @@ For local, keyless graph reads:
   "mcpServers": {
     "docs": {
       "command": "ask",
-      "args": ["--kg-path", ".hev-ask/kg.json", "mcp"]
+      "args": ["--kg-path", ".hev-ask/digest.json", "mcp"]
     }
   }
 }
@@ -51,7 +51,7 @@ tool error unless `--endpoint` is set.
 | `sections_list` | `{ group? }` | `{ sections: SectionSummary[] }` |
 | `section_get` | `{ id }` | one full knowledge node |
 | `overview` | none | `{ overview, context }` |
-| `search` | `{ query, maxResults? }` | keyword results from the graph |
+| `search` | `{ query, maxResults? }` | keyword results from the digest |
 | `answer` | `{ query }` | streamed endpoint answer collapsed into one tool result |
 
 Tool results include human-readable text in MCP `content` and the original
@@ -64,9 +64,9 @@ route the structured object into later steps.
 
 - `--endpoint <url>` calls the deployed HTTP read API and streams `answer`
   through `POST /api/ask`.
-- Otherwise it reads `--kg-path` from disk, defaulting to `.hev-ask/kg.json`.
+- Otherwise it reads `--kg-path` from disk, defaulting to `.hev-ask/digest.json`.
 
-Local reads load the graph on each tool call so a just-rebuilt `kg.json` is
+Local reads load the digest on each tool call so a just-rebuilt `digest.json` is
 visible without restarting the MCP server.
 
 ## Protocol surface

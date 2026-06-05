@@ -1,6 +1,6 @@
 ---
-title: "Knowledge graph format"
-description: "The committed .hev-ask/kg.json artifact: distilled section nodes with verbatim facts and source links, the glossary and overview, how each field is used, and how it degrades when absent."
+title: "Digest format"
+description: "The committed .hev-ask/digest.json artifact — the ask digest: distilled section nodes with verbatim facts and source links, the glossary and overview, how each field is used, and how it degrades when absent."
 group: "API"
 order: 4
 ---
@@ -8,18 +8,21 @@ order: 4
 import Callout from "../../../components/docs/Callout.astro";
 
 <Callout label="see it rendered">
-This site renders its own knowledge graph at [**/kg** — what the agent sees](/kg):
+This site renders its own digest at [**/digest** — what the agent sees](/digest):
 the distilled summaries, verbatim facts, and glossary the loop reasons over.
 </Callout>
 
-The knowledge graph is a single JSON file, by default `.hev-ask/kg.json`, built
-offline by [`ask kg build`](/docs/api/cli) and committed to your repo. The
-integration inlines it into the build through the `virtual:hev-ask/kg` module,
-so the running site reads it with no filesystem access.
+The ask digest is a single JSON file, by default `.hev-ask/digest.json`, built
+offline by [`ask kg build`](/docs/api/cli) and committed to your repo. (`kg` is
+the digest's historical name; it survives in the CLI group, the `--kg-path`
+flag, and the virtual module id.) The integration inlines it into the build through the
+`virtual:hev-ask/kg` module, so the running site reads it with no filesystem
+access.
 
-It is the **agent's view of your docs** — a distilled, source-grounded "shadow
-site." Humans read the rendered pages; the agentic loop reads the graph and links
-back to the real pages. Every node carries a `url#anchor` to its source.
+It is the **agent's view of your docs** — a distilled, source-grounded index
+read progressively. Humans read the rendered pages; the agentic loop reads the
+digest and links back to the real pages. Every node carries a `url#anchor` to
+its source.
 
 ## Shape
 
@@ -30,12 +33,12 @@ back to the real pages. Every node carries a `url#anchor` to its source.
   "contentHash": "a1b2c3…",
   "context": "## hev ask\n\nA search overlay for Astro docs…",
   "glossary": [
-    { "term": "knowledge graph", "aliases": ["kg"], "definition": "An offline-built artifact of the docs." }
+    { "term": "ask digest", "aliases": ["kg", "digest"], "definition": "The offline-built artifact distilled from the docs." }
   ],
   "overview": "## Overview\n- Kubernetes autoscaling — `concepts#kubernetes-autoscaling`\n…",
   "suggestions": [
-    "How does the knowledge graph stay fresh?",
-    "What does keyword search fall back to without a graph?"
+    "How does the ask digest stay fresh?",
+    "What does keyword search fall back to without a digest?"
   ],
   "nodes": [
     {
@@ -67,8 +70,8 @@ back to the real pages. Every node carries a `url#anchor` to its source.
 | `glossary` | `GlossaryEntry[]` | Terms with aliases and definitions; widens keyword search. |
 | `overview` | `string` | A deterministic grouped map of every section, injected into the agent's prompt. |
 | `suggestions` | `string[]` | Model-authored example questions the overlay shows on open. The endpoint serves them; absent ⇒ the overlay shows none. |
-| `nodes` | `KnowledgeNode[]` | One distilled section per doc heading — the shadow site. |
-| `edges` | `KnowledgeEdge[]` | Reserved for a future node-to-node graph; ships empty. |
+| `nodes` | `KnowledgeNode[]` | One distilled section per doc heading — the body of the digest. |
+| `edges` | `KnowledgeEdge[]` | Reserved; ships empty. |
 
 ### `KnowledgeNode`
 
@@ -96,17 +99,17 @@ back to the real pages. Every node carries a `url#anchor` to its source.
 - **`suggestions`** are returned by the endpoint's `GET` and rendered as the
   overlay's suggested questions on open.
 - **`contentHash`** is the freshness gate. `build` recomputes it; if a committed
-  graph with nodes already matches, the build skips the model call.
+  digest with nodes already matches, the build skips the model call.
 
 ## Degradation
 
-The graph is read defensively. If the file is **missing or malformed**, or it is
+The digest is read defensively. If the file is **missing or malformed**, or it is
 an older **node-less (v1) artifact**, the integration uses it as-is: with no
 nodes the agentic loop falls back to keyword-style search, and keyword mode still
 works. Nothing hard-fails.
 
 <Callout label="review it like code">
-Because the graph is committed JSON, it shows up in pull requests. Its structure
+Because the digest is committed JSON, it shows up in pull requests. Its structure
 — nodes, sources, facts, overview, hash — is deterministic and reviewable; only
 the distillation (`summary`, `glossary`, `context`, `suggestions`) is
 model-authored. That reviewability is the reason it's a file and not a runtime

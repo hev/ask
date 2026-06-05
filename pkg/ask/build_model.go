@@ -44,7 +44,7 @@ func BuildKnowledgeGraph(options BuildKnowledgeGraphOptions) (BuildResult, error
 		apiKey = os.Getenv("ANTHROPIC_API_KEY")
 	}
 	if apiKey == "" {
-		return BuildResult{}, fmt.Errorf("ANTHROPIC_API_KEY is required to build a fresh knowledge graph")
+		return BuildResult{}, fmt.Errorf("ANTHROPIC_API_KEY is required to build a fresh digest")
 	}
 
 	emitted, err := callKnowledgeGraphModel(options, apiKey, corpus)
@@ -87,7 +87,7 @@ func callKnowledgeGraphModel(options BuildKnowledgeGraphOptions, apiKey string, 
 		"tools": []map[string]any{knowledgeGraphTool()},
 		"tool_choice": map[string]string{
 			"type": "tool",
-			"name": "emit_knowledge_graph",
+			"name": "emit_digest",
 		},
 	}
 	data, err := json.Marshal(body)
@@ -132,20 +132,20 @@ func callKnowledgeGraphModel(options BuildKnowledgeGraphOptions, apiKey string, 
 		return EmittedDistillation{}, fmt.Errorf("decode Anthropic response: %w", err)
 	}
 	if payload.StopReason == "max_tokens" {
-		return EmittedDistillation{}, fmt.Errorf("knowledge graph emission hit the max_tokens cap; the corpus may be too large for one pass")
+		return EmittedDistillation{}, fmt.Errorf("digest emission hit the max_tokens cap; the corpus may be too large for one pass")
 	}
 	for _, block := range payload.Content {
-		if block.Type != "tool_use" || block.Name != "emit_knowledge_graph" {
+		if block.Type != "tool_use" || block.Name != "emit_digest" {
 			continue
 		}
 		var emitted EmittedDistillation
 		if err := json.Unmarshal(block.Input, &emitted); err != nil {
-			return EmittedDistillation{}, fmt.Errorf("parse knowledge graph tool input: %w", err)
+			return EmittedDistillation{}, fmt.Errorf("parse digest tool input: %w", err)
 		}
 		normalizeDistillation(&emitted)
 		return emitted, nil
 	}
-	return EmittedDistillation{}, fmt.Errorf("Anthropic response did not include emit_knowledge_graph tool use")
+	return EmittedDistillation{}, fmt.Errorf("Anthropic response did not include emit_digest tool use")
 }
 
 func renderCorpusText(sections []CorpusSection) string {
@@ -156,15 +156,15 @@ func renderCorpusText(sections []CorpusSection) string {
 	return strings.Join(parts, "\n\n---\n\n")
 }
 
-const kgSystemPrompt = "You build documentation knowledge graphs for an AI search agent. Return only the forced tool call. " +
+const kgSystemPrompt = "You build documentation digests for an AI search agent. Return only the forced tool call. " +
 	"Write a compact orientation, a glossary with aliases real users would type, one tight summary for every section id in the corpus, " +
 	"and 3-5 natural questions a reader might ask that these docs answer. Summaries are what the agent reasons from, so make them faithful " +
 	"and self-contained; paraphrase prose but never restate code, flags, or exact identifiers."
 
 func knowledgeGraphTool() map[string]any {
 	return map[string]any{
-		"name":        "emit_knowledge_graph",
-		"description": "Emit a documentation knowledge graph: a compact orientation, a glossary, and one distilled summary per section.",
+		"name":        "emit_digest",
+		"description": "Emit a documentation digest: a compact orientation, a glossary, and one distilled summary per section.",
 		"input_schema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{

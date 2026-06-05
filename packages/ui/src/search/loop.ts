@@ -112,7 +112,7 @@ async function* tracedStream(
 }
 
 /**
- * Entry point. When the committed knowledge graph carries distilled `nodes`, the
+ * Entry point. When the committed digest carries distilled `nodes`, the
  * agent navigates that shadow graph (graph path). A node-less (v1 / degraded)
  * graph falls back to the original keyword-search loop, unchanged.
  */
@@ -481,7 +481,7 @@ Write a short, direct answer in Markdown:
     },
     {
       type: 'text',
-      text: `<domain_context>\n${kg.context || 'No knowledge graph context is available.'}\n</domain_context>`,
+      text: `<domain_context>\n${kg.context || 'No digest context is available.'}\n</domain_context>`,
       cache_control: { type: 'ephemeral' },
     },
   ];

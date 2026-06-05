@@ -1,6 +1,6 @@
 ---
 title: "Limits"
-description: "The hard boundaries of hev ask: corpus scope, recall ceiling, single-call knowledge-graph build, frontmatter parsing, latency, and adapter requirements — what it deliberately does not do."
+description: "The hard boundaries of hev ask: corpus scope, recall ceiling, single-call digest build, frontmatter parsing, latency, and adapter requirements — what it deliberately does not do."
 group: "Overview"
 order: 4
 ---
@@ -36,7 +36,7 @@ built yet. If your analytics show questions consistently missing, that's the
 signal it's time — until then, a richer glossary is the cheaper lever.
 </Callout>
 
-## The knowledge-graph build is a single model call
+## The digest build is a single model call
 
 The offline build sends your full cleaned corpus to the model in one call. For
 a typical docs site (dozens of pages) this fits comfortably. A very large
@@ -51,7 +51,7 @@ The offline build parses frontmatter with a small flat-YAML splitter, not a
 full YAML parser. It handles the common docs schema (string and number fields).
 **Nested frontmatter structures aren't supported** by the build-time parser.
 
-This only affects the offline knowledge-graph build reading files from disk; the
+This only affects the offline digest build reading files from disk; the
 runtime index uses Astro's own `getCollection`, which honors your real schema.
 
 ## Agentic search adds latency

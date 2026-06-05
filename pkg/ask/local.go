@@ -9,11 +9,11 @@ import (
 func LoadGraph(path string) (KnowledgeGraph, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return KnowledgeGraph{}, fmt.Errorf("read knowledge graph %q: %w", path, err)
+		return KnowledgeGraph{}, fmt.Errorf("read digest %q: %w", path, err)
 	}
 	var graph KnowledgeGraph
 	if err := json.Unmarshal(data, &graph); err != nil {
-		return KnowledgeGraph{}, fmt.Errorf("parse knowledge graph %q: %w", path, err)
+		return KnowledgeGraph{}, fmt.Errorf("parse digest %q: %w", path, err)
 	}
 	normalizeGraph(&graph)
 	return graph, nil

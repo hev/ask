@@ -277,7 +277,7 @@ func normalizeBuildOptions(options *BuildOptions) {
 		options.BasePath = "/docs/"
 	}
 	if options.KGPath == "" {
-		options.KGPath = ".hev-ask/kg.json"
+		options.KGPath = ".hev-ask/digest.json"
 	}
 	if options.ChunkHeadingDepth == 0 {
 		options.ChunkHeadingDepth = 3

@@ -1,4 +1,4 @@
-import kgRaw from "../../.hev-ask/kg.json?raw";
+import kgRaw from "../../.hev-ask/digest.json?raw";
 
 export interface GlossaryTerm {
 	term: string;
@@ -37,7 +37,7 @@ export interface KnowledgeGraph {
 
 export const knowledgeGraph = JSON.parse(kgRaw) as KnowledgeGraph;
 
-export const knowledgeGraphHref = "/kg";
+export const knowledgeGraphHref = "/digest";
 
 /** Nodes grouped by their docs group, preserving id order within a group. */
 export function nodesByGroup(): { group: string; nodes: KgNode[] }[] {
@@ -54,6 +54,54 @@ export function nodesByGroup(): { group: string; nodes: KgNode[] }[] {
 
 export function getKnowledgeGraphRawJson() {
 	return JSON.stringify(knowledgeGraph, null, 2);
+}
+
+function escapeHtml(text: string) {
+	return text
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;");
+}
+
+function renderInline(text: string) {
+	return escapeHtml(text)
+		.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+		.replace(/`([^`]+)`/g, "<code>$1</code>");
+}
+
+/**
+ * Render the KG's constrained markdown (the `context` field) to HTML:
+ * `##`/`###` headings, `-` bullet lists, paragraphs, `**bold**`, `code`.
+ */
+export function renderKgMarkdown(md: string): string {
+	const out: string[] = [];
+	let list: string[] | null = null;
+	const flushList = () => {
+		if (list) {
+			out.push(`<ul>${list.join("")}</ul>`);
+			list = null;
+		}
+	};
+	for (const block of md.split(/\n{2,}/)) {
+		for (const line of block.split("\n")) {
+			const trimmed = line.trim();
+			if (!trimmed) continue;
+			const heading = trimmed.match(/^(#{2,4})\s+(.*)$/);
+			const bullet = trimmed.match(/^-\s+(.*)$/);
+			if (bullet) {
+				(list ??= []).push(`<li>${renderInline(bullet[1])}</li>`);
+			} else if (heading) {
+				flushList();
+				const level = Math.min(heading[1].length + 1, 6);
+				out.push(`<h${level}>${renderInline(heading[2])}</h${level}>`);
+			} else {
+				flushList();
+				out.push(`<p>${renderInline(trimmed)}</p>`);
+			}
+		}
+		flushList();
+	}
+	return out.join("\n");
 }
 
 export function formatGeneratedAt() {

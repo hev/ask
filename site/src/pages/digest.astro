@@ -1,0 +1,619 @@
+---
+import Base from "../layouts/Base.astro";
+import {
+	knowledgeGraph,
+	nodesByGroup,
+	getKnowledgeGraphRawJson,
+	formatGeneratedAt,
+	renderKgMarkdown,
+} from "../lib/knowledge-graph";
+
+const groups = nodesByGroup();
+const nodeCount = knowledgeGraph.nodes?.length ?? 0;
+const glossaryCount = knowledgeGraph.glossary?.length ?? 0;
+const shortHash = (knowledgeGraph.contentHash ?? "").slice(0, 12) || "—";
+const rawJson = getKnowledgeGraphRawJson();
+---
+
+<Base
+	title="hev ask - what the agent sees"
+	description="The rendered ask digest for this site — the map the agentic loop holds in context, and the facts it reveals when it opens a section. This is what the agent sees."
+	current="docs"
+>
+	<main class="kg">
+		<header class="kg-head">
+			<p class="kicker">// what the agent sees</p>
+			<h1>Ask digest</h1>
+			<p class="lede">
+				When you press <kbd>⌘K</kbd> and ask a question, the agent doesn't read
+				these pages — it reads this. It's committed as
+				<code>.hev-ask/digest.json</code>, rendered here exactly the way the loop
+				discloses it: a map it holds in context, and details it opens on demand.
+			</p>
+			<dl class="kg-meta">
+				<div><dt>version</dt><dd>{knowledgeGraph.version}</dd></div>
+				<div><dt>sections</dt><dd>{nodeCount}</dd></div>
+				<div><dt>glossary</dt><dd>{glossaryCount}</dd></div>
+				<div><dt>generated</dt><dd title={formatGeneratedAt()}>{formatGeneratedAt().slice(0, 10) || "—"}</dd></div>
+				<div><dt>content hash</dt><dd title={knowledgeGraph.contentHash}>{shortHash}</dd></div>
+			</dl>
+		</header>
+
+		<section class="disclosure" aria-label="How the agent reads the graph">
+			<ol>
+				<li>
+					<span class="lvl">level 1 · the map</span>
+					<p>
+						Always in the prompt: every section's id, heading, and one-line
+						summary, plus the glossary's aliases for widening a query. This is the
+						collapsed row below.
+					</p>
+				</li>
+				<li>
+					<span class="lvl">level 2 · open_section()</span>
+					<p>
+						On demand, the agent opens a section to read its verbatim
+						<strong>facts</strong> — and, for reference sections, the
+						<strong>source text</strong>. That's what expanding a row reveals.
+					</p>
+				</li>
+			</ol>
+			<p class="disclosure-note">Expand a row to make the same call the agent does.</p>
+		</section>
+
+		<section class="kg-block">
+			<h2>Orientation</h2>
+			<p class="block-note">The compact product overview the build distills — context for the keyword/expansion path.</p>
+			<div class="prose" set:html={renderKgMarkdown(knowledgeGraph.context ?? "")} />
+		</section>
+
+		<section class="kg-block">
+			<h2>Glossary <span class="count">{glossaryCount} terms</span></h2>
+			<p class="block-note">Aliases that widen a reader's query before retrieval — so <code>k8s</code> finds <code>kubernetes</code>. List the terms; open one for its aliases and definition.</p>
+			<ul class="disclose-list">
+				{
+					(knowledgeGraph.glossary ?? []).map((g) => (
+						<li>
+							<details>
+								<summary>
+									<span class="row-title">{g.term}</span>
+									{g.aliases && g.aliases.length > 0 && (
+										<span class="row-meta">{g.aliases.length} alias{g.aliases.length === 1 ? "" : "es"}</span>
+									)}
+								</summary>
+								<div class="detail">
+									{g.aliases && g.aliases.length > 0 && (
+										<div class="chips">
+											{g.aliases.map((a) => (
+												<code class="chip alias">{a}</code>
+											))}
+										</div>
+									)}
+									<p class="def">{g.definition}</p>
+								</div>
+							</details>
+						</li>
+					))
+				}
+			</ul>
+		</section>
+
+		<section class="kg-block">
+			<h2>Sections <span class="count">{nodeCount} nodes</span></h2>
+			<p class="block-note">One node per heading — the map the agent navigates. Collapsed shows the summary it always sees; open a section to reveal its facts, just like the loop's <code>open_section</code>.</p>
+			{
+				groups.map((grp) => (
+					<div class="kg-group">
+						<h3>{grp.group}</h3>
+						<ul class="disclose-list">
+							{grp.nodes.map((node) => (
+								<li>
+									<details>
+										<summary>
+											<div class="row-main">
+												<span class="row-title">{node.heading ?? node.title}</span>
+												<span class={`mode mode-${node.mode}`}>
+													{node.mode === "source-primary" ? "reference" : "summary"}
+												</span>
+											</div>
+											<span class="row-summary">{node.summary}</span>
+										</summary>
+										<div class="detail">
+											{node.facts.length > 0 ? (
+												<>
+													<span class="detail-label">facts · quoted verbatim</span>
+													<div class="chips">
+														{node.facts.map((f) => (
+															<code class={`chip fact-${f.kind}`}>{f.literal}</code>
+														))}
+													</div>
+												</>
+											) : (
+												<span class="detail-label muted">no verbatim facts in this section</span>
+											)}
+											{node.mode === "source-primary" && (
+												<p class="src-note">
+													Reference section — on open, the agent also receives this
+													section's source text verbatim.
+												</p>
+											)}
+											<a class="open-link" href={node.url}>open section ↗</a>
+										</div>
+									</details>
+								</li>
+							))}
+						</ul>
+					</div>
+				))
+			}
+		</section>
+
+		<details class="kg-raw">
+			<summary>Raw <code>digest.json</code> artifact</summary>
+			<pre><code>{rawJson}</code></pre>
+		</details>
+	</main>
+</Base>
+
+<style>
+	.kg {
+		width: var(--page);
+		max-width: 820px;
+		margin: 0 auto;
+		padding: 3rem 0 2rem;
+	}
+
+	.kicker {
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.75rem;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--signal);
+		margin-bottom: 1rem;
+	}
+
+	h1 {
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 2.75rem;
+		line-height: 1.05;
+		letter-spacing: -0.02em;
+		margin-bottom: 1rem;
+	}
+
+	.lede {
+		color: var(--ink-soft);
+		font-size: 1.0625rem;
+		line-height: 1.6;
+		max-width: 44em;
+	}
+
+	.lede kbd {
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.8em;
+		padding: 0.1em 0.4em;
+		border: 1px solid var(--rule-strong);
+		border-radius: 3px;
+	}
+
+	.kg-meta {
+		display: grid;
+		grid-template-columns: repeat(5, minmax(0, 1fr));
+		border: 1px solid var(--rule-strong);
+		background: var(--paper-warm);
+		margin-top: 2rem;
+	}
+
+	.kg-meta div {
+		min-width: 0;
+		padding: 0.85rem 1rem;
+		border-right: 1px solid var(--rule);
+	}
+
+	.kg-meta div:last-child {
+		border-right: 0;
+	}
+
+	.kg-meta dt {
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.65rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--muted);
+		margin-bottom: 0.25rem;
+	}
+
+	.kg-meta dd {
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.95rem;
+		color: var(--ink);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	/* --- disclosure model explainer --- */
+	.disclosure {
+		margin-top: 2.5rem;
+		padding: 1.5rem 1.6rem 1.25rem;
+		border: 1px solid var(--rule-strong);
+		border-left: 2px solid var(--signal);
+		border-radius: 2px;
+		background: var(--paper-warm);
+	}
+
+	.disclosure ol {
+		list-style: none;
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 1.5rem;
+	}
+
+	.lvl {
+		display: block;
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.7rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--signal);
+		margin-bottom: 0.4rem;
+	}
+
+	.disclosure p {
+		color: var(--ink-soft);
+		font-size: 0.9375rem;
+		line-height: 1.55;
+	}
+
+	.disclosure-note {
+		margin-top: 1.25rem;
+		padding-top: 0.9rem;
+		border-top: 1px dashed var(--rule-strong);
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.8125rem;
+		color: var(--muted);
+	}
+
+	.kg-block {
+		margin-top: 3.5rem;
+	}
+
+	.kg-block h2 {
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 1.25rem;
+		letter-spacing: -0.01em;
+		margin-bottom: 0.5rem;
+		display: flex;
+		align-items: baseline;
+		gap: 0.6rem;
+	}
+
+	.kg-block h2::before {
+		content: "#";
+		color: var(--signal);
+	}
+
+	.count {
+		font-size: 0.8rem;
+		color: var(--muted);
+		font-weight: 400;
+	}
+
+	.block-note {
+		color: var(--muted);
+		font-size: 0.9375rem;
+		margin-bottom: 1.5rem;
+		max-width: 48em;
+		line-height: 1.55;
+	}
+
+	.prose {
+		color: var(--ink-soft);
+		font-size: 1.0625rem;
+		line-height: 1.7;
+		max-width: 48em;
+	}
+
+	/* set:html content is unscoped, so style it via :global() */
+	.prose :global(h3),
+	.prose :global(h4) {
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.95rem;
+		letter-spacing: -0.01em;
+		color: var(--ink);
+		margin: 1.25rem 0 0.5rem;
+	}
+
+	.prose :global(h3):first-child,
+	.prose :global(h4):first-child {
+		margin-top: 0;
+	}
+
+	.prose :global(p) {
+		margin: 0 0 0.9rem;
+	}
+
+	.prose :global(p):last-child {
+		margin-bottom: 0;
+	}
+
+	.prose :global(ul) {
+		list-style: none;
+		margin: 0 0 0.9rem;
+		padding: 0;
+	}
+
+	.prose :global(li) {
+		position: relative;
+		padding-left: 1.25rem;
+		margin-bottom: 0.45rem;
+	}
+
+	.prose :global(li)::before {
+		content: "–";
+		position: absolute;
+		left: 0;
+		color: var(--signal);
+	}
+
+	.prose :global(strong) {
+		color: var(--ink);
+		font-weight: 600;
+	}
+
+	.prose :global(code) {
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.85em;
+		padding: 0.1em 0.3em;
+		background: var(--paper);
+		border: 1px solid var(--rule);
+		border-radius: 2px;
+	}
+
+	/* --- shared progressive-disclosure list --- */
+	.disclose-list {
+		list-style: none;
+		border: 1px solid var(--rule);
+	}
+
+	.disclose-list > li {
+		list-style: none;
+		border-bottom: 1px solid var(--rule);
+		background: var(--paper-warm);
+	}
+
+	.disclose-list > li::marker {
+		content: "";
+	}
+
+	.disclose-list > li:last-child {
+		border-bottom: 0;
+	}
+
+	.disclose-list summary {
+		display: block;
+		cursor: pointer;
+		padding: 0.85rem 1.1rem 0.85rem 2rem;
+		position: relative;
+		list-style: none;
+		transition: color 0.12s ease;
+	}
+
+	.disclose-list summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.disclose-list summary::marker {
+		content: "";
+	}
+
+	.disclose-list summary::before {
+		content: "›";
+		position: absolute;
+		left: 1rem;
+		top: 0.8rem;
+		color: var(--signal);
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		transition: transform 0.15s ease;
+	}
+
+	.disclose-list details[open] > summary::before {
+		transform: rotate(90deg);
+	}
+
+	.disclose-list summary:hover .row-title {
+		color: var(--signal);
+	}
+
+	.row-main {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	.row-title {
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.9375rem;
+		font-weight: 600;
+		color: var(--ink);
+	}
+
+	.row-meta {
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.75rem;
+		color: var(--muted);
+		margin-left: 0.6rem;
+	}
+
+	.row-summary {
+		display: block;
+		margin-top: 0.3rem;
+		color: var(--ink-soft);
+		font-size: 0.9375rem;
+		line-height: 1.5;
+	}
+
+	.mode {
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.65rem;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		padding: 0.1rem 0.4rem;
+		border-radius: 2px;
+		white-space: nowrap;
+		flex: 0 0 auto;
+	}
+
+	.mode-agent-primary {
+		color: var(--muted);
+		border: 1px solid var(--rule-strong);
+	}
+
+	.mode-source-primary {
+		color: var(--signal);
+		border: 1px solid var(--signal);
+	}
+
+	.detail {
+		padding: 0.25rem 1.1rem 1.1rem 2rem;
+		border-top: 1px dashed var(--rule-strong);
+		margin-top: 0.1rem;
+	}
+
+	.detail-label {
+		display: block;
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.7rem;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--muted);
+		margin: 0.75rem 0 0.6rem;
+	}
+
+	.detail-label.muted {
+		color: var(--muted);
+		font-style: normal;
+	}
+
+	.chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+	}
+
+	.chip {
+		font-size: 0.75rem;
+		padding: 0.15rem 0.4rem;
+		background: var(--paper);
+		border: 1px solid var(--rule-strong);
+		border-radius: 2px;
+		color: var(--ink-soft);
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.chip.alias {
+		color: var(--signal-dark);
+		border-color: color-mix(in srgb, var(--signal) 35%, var(--rule-strong));
+	}
+
+	.chip.fact-flag {
+		color: var(--signal-dark);
+		border-color: color-mix(in srgb, var(--signal) 35%, var(--rule-strong));
+	}
+
+	.def {
+		margin-top: 0.75rem;
+		color: var(--ink-soft);
+		font-size: 0.9375rem;
+		line-height: 1.55;
+	}
+
+	.src-note {
+		margin-top: 0.85rem;
+		color: var(--muted);
+		font-size: 0.875rem;
+		line-height: 1.5;
+	}
+
+	.open-link {
+		display: inline-block;
+		margin-top: 0.85rem;
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.8125rem;
+		color: var(--signal);
+		text-decoration: none;
+	}
+
+	.open-link:hover {
+		text-decoration: underline;
+	}
+
+	.kg-group {
+		margin-top: 2rem;
+	}
+
+	.kg-group h3 {
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.75rem;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--muted);
+		margin-bottom: 0.75rem;
+	}
+
+	.kg-raw {
+		margin-top: 3.5rem;
+		border: 1px solid var(--rule-strong);
+		border-radius: 2px;
+		background: var(--paper-warm);
+	}
+
+	.kg-raw > summary {
+		cursor: pointer;
+		padding: 0.85rem 1.1rem;
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.875rem;
+		color: var(--ink-soft);
+	}
+
+	.kg-raw > summary:hover {
+		color: var(--signal);
+	}
+
+	.kg-raw pre {
+		margin: 0;
+		border: 0;
+		border-top: 1px solid var(--rule);
+		background: var(--ink);
+		color: #e8e5dc;
+		padding: 1.25rem;
+		overflow-x: auto;
+		font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+		font-size: 0.75rem;
+		line-height: 1.6;
+		max-height: 480px;
+	}
+
+	.kg-raw pre code {
+		background: transparent;
+		padding: 0;
+		color: inherit;
+	}
+
+	@media (max-width: 760px) {
+		.kg-meta {
+			grid-template-columns: 1fr 1fr;
+		}
+
+		.disclosure ol {
+			grid-template-columns: 1fr;
+		}
+
+		h1 {
+			font-size: 2.1rem;
+		}
+	}
+</style>
