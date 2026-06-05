@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { accessSync, chmodSync, constants as fsConstants, existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,9 +42,26 @@ function resolvePackagedBinary() {
   try {
     const packageJson = require.resolve(`${packageName}/package.json`);
     const candidate = path.join(path.dirname(packageJson), 'bin', executableName());
-    return existsSync(candidate) ? candidate : null;
+    if (!existsSync(candidate)) return null;
+    ensureExecutable(candidate);
+    return candidate;
   } catch {
     return null;
+  }
+}
+
+// Some package managers strip the executable bit when packing/extracting
+// (pnpm pack only preserves it for a package's own declared bins).
+function ensureExecutable(file) {
+  if (process.platform === 'win32') return;
+  try {
+    accessSync(file, fsConstants.X_OK);
+  } catch {
+    try {
+      chmodSync(file, 0o755);
+    } catch {
+      // spawn will surface the real error if this didn't help
+    }
   }
 }
 
