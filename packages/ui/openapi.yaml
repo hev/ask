@@ -18,7 +18,7 @@ info:
   license:
     name: MIT
 servers:
-  - url: https://askhev.com
+  - url: https://hevask.com
     description: The hev ask docs site (dogfoods @hevmind/ask).
   - url: "{origin}"
     description: Any site running the integration.

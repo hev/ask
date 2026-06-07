@@ -29,7 +29,7 @@ aliases and old-URL redirects are the only places it remains on purpose).
 ```
 packages/ui    # the package @hevmind/ask — integration, endpoint, search, digest/, CLI
 playground     # minimal Astro site for fast local dev of the package
-site           # the public docs + showcase site (askhev.com); dogfoods @hevmind/ask
+site           # the public docs + showcase site (hevask.com); dogfoods @hevmind/ask
 ```
 
 It's a pnpm workspace. `packages/ui` is the only published artifact; `playground`
@@ -81,7 +81,7 @@ docs are also the search corpus, so doc edits are product edits.
 When any of these change, update the matching `site/src/content/docs/api/*.mdx`
 page in the same PR.
 
-## The site (askhev.com)
+## The site (hevask.com)
 
 - Styles, layouts, and doc components are copied from `../layer/site` (the hev
   house style: dark, JetBrains Mono, `--signal` orange). Reuse them; don't
@@ -99,7 +99,12 @@ page in the same PR.
   `main`; deploying from another git branch creates only a preview, so pass
   `--branch=main` to `wrangler pages deploy` to update production (custom
   domains serve production only). The API key for the live agentic path is
-  a server secret, never bundled.
+  a server secret, never bundled. **hevask.com is the canonical domain**
+  (matches hevmind/hevlayer); askhev.com stays registered and 301s to it via
+  zone-level Redirect Rules in the Cloudflare dashboard (one on the askhev.com
+  zone for everything, one on the hevask.com zone for www→apex). Pages
+  `_redirects` files cannot match on hostname, so don't move the redirect
+  there. All four hostnames are attached as custom domains on the project.
 
 ## Common commands
 

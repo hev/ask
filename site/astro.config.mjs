@@ -7,7 +7,7 @@ import hevAsk from "@hevmind/ask";
 // are the product's own test corpus. Static pages stay prerendered; only the
 // on-demand /api/ask route runs as a Cloudflare Pages Function.
 export default defineConfig({
-	site: "https://askhev.com",
+	site: "https://hevask.com",
 	devToolbar: { enabled: false },
 	// The digest page lived at /kg before the rename; keep old links working.
 	redirects: { "/kg": "/digest", "/docs/api/knowledge-graph": "/docs/api/digest" },

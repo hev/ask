@@ -1,4 +1,4 @@
-# Cloudflare Pages config for askhev.com (project `hev-ask`).
+# Cloudflare Pages config for hevask.com (project `hev-ask`).
 # The @astrojs/cloudflare adapter emits a worker into dist/ for the on-demand
 # /api/ask endpoint; nodejs_compat lets it use Node built-ins at the edge.
 # `pages_build_output_dir` makes `wrangler pages deploy` (no positional) pick

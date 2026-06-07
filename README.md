@@ -4,7 +4,7 @@ A `⌘K` search overlay for Astro docs sites: instant keyword search with
 heading-anchor deep links, plus an optional Claude-powered answer loop on
 `Enter`. Shipped as the npm package `@hevmind/ask`.
 
-**Docs, quick start, and live demo: [askhev.com](https://askhev.com)** — the
+**Docs, quick start, and live demo: [hevask.com](https://hevask.com)** — the
 site searches itself with `@hevmind/ask`; press `⌘K` to see it work.
 
 ## Repo layout
@@ -13,7 +13,7 @@ site searches itself with `@hevmind/ask`; press `⌘K` to see it work.
 .
 ├─ packages/ui   # the publishable package: @hevmind/ask
 ├─ playground    # a minimal Astro docs site for fast local dev
-└─ site          # docs + showcase site (askhev.com)
+└─ site          # docs + showcase site (hevask.com)
 ```
 
 ## Develop

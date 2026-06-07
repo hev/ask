@@ -27,7 +27,7 @@ ask sections list --group API
 ask section get api/endpoint#digest-reads-get
 ask overview
 ask search "read endpoints"
-ask --endpoint https://askhev.com/api/ask answer "what read routes exist?"
+ask --endpoint https://hevask.com/api/ask answer "what read routes exist?"
 ask mcp
 ```
 
@@ -150,7 +150,7 @@ Global flags come before the command:
 
 ```sh
 ask --digest-path .hev-ask/digest.json --json search "openapi"
-ask --endpoint https://askhev.com/api/ask mcp
+ask --endpoint https://hevask.com/api/ask mcp
 ask digest build --collection docs --collection guides --chunk-heading-depth 2
 ask digest verify --skip-build
 ```
@@ -179,9 +179,9 @@ Use a deployed endpoint when the agent needs the remote digest or `answer`:
 ```json
 {
   "mcpServers": {
-    "askhev": {
+    "hevask": {
       "command": "ask",
-      "args": ["--endpoint", "https://askhev.com/api/ask", "mcp"]
+      "args": ["--endpoint", "https://hevask.com/api/ask", "mcp"]
     }
   }
 }
