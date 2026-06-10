@@ -1,4 +1,4 @@
-import digestRaw from "../../.hev-ask/digest.json?raw";
+import virtualDigest from "virtual:hev-ask/digest";
 
 export interface GlossaryTerm {
 	term: string;
@@ -35,7 +35,7 @@ export interface Digest {
 	nodes: DigestNode[];
 }
 
-export const digestData = JSON.parse(digestRaw) as Digest;
+export const digestData = virtualDigest as Digest;
 
 export const digestHref = "/digest";
 
