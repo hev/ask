@@ -1,7 +1,7 @@
 ---
 name: build-digest
 description: >-
-  Build the @hevmind/ask ask digest (.hev-ask/digest.json) for an Astro docs site
+  Build the @hevmind/ask ask digest (.hev-ask/ markdown tree) for an Astro docs site
   using your Claude Code subscription instead of an ANTHROPIC_API_KEY. Use when
   the user asks to build, rebuild, or refresh the hev ask digest, knowledge
   graph, KG, or search index, or after docs content changes. Runs `ask digest
@@ -12,8 +12,8 @@ description: >-
 # Build the hev ask digest
 
 `@hevmind/ask` searches an Astro docs site. Its agentic loop, keyword ranking, and
-suggested questions are powered by a committed ask digest at
-`.hev-ask/digest.json`. Only the **distillation** needs a model — the node
+suggested questions are powered by a committed ask digest tree at
+`.hev-ask/`. Only the **distillation** needs a model — the node
 structure, verbatim facts, overview map, and content hash are computed
 deterministically by the CLI. This skill performs that distillation here, in
 the user's subscription, so it costs **no API tokens on their own key**.
@@ -29,7 +29,7 @@ Run every command from the **site root** (the directory whose `astro.config.*`
 registers `hevAsk()`). Prefer `pnpm exec ask digest …`; fall back to
 `npx -p @hevmind/ask ask digest …` if pnpm isn't used. Pass the same content flags
 the site's integration uses if they differ from the defaults (`--collection`,
-`--base-path`, `--chunk-heading-depth`, `--content-glob`, `--digest-path`);
+`--base-path`, `--chunk-heading-depth`, `--content-glob`, `--digest-dir`);
 they must match across `corpus` and `assemble`.
 
 **Never read a shard input file into the orchestrating context** (they hold
@@ -129,7 +129,7 @@ distillation agents.
    ```
 
    Merges every current shard distillation with the global synthesis, derives
-   the deterministic parts, and writes `.hev-ask/digest.json`. Sections from
+   the deterministic parts, and writes the `.hev-ask/` markdown tree. Sections from
    undistilled shards fall back to plain excerpts and are reported — the
    digest stays usable mid-wave, but aim for 0 pending before committing.
 
@@ -148,10 +148,10 @@ distillation agents.
    ```sh
    rm -f .hev-ask/shards/input-*.json
    git check-ignore -q .hev-ask/shards || echo ".hev-ask/shards/" >> .gitignore
-   git add .gitignore .hev-ask/digest.json
+   git add .gitignore .hev-ask
    ```
 
-   Only `.hev-ask/digest.json` is committed.
+   Only the `.hev-ask/` tree is committed; `.hev-ask/shards/` remains local.
 
 ## Notes
 

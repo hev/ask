@@ -37,5 +37,12 @@ function parseScalar(value: string): unknown {
   if (value === 'false') return false;
   const numberValue = Number(value);
   if (Number.isFinite(numberValue) && /^-?\d+(\.\d+)?$/.test(value)) return numberValue;
+  if (value.startsWith('[') || value.startsWith('{') || value === 'null') {
+    try {
+      return JSON.parse(value);
+    } catch {
+      // Fall through to the raw scalar.
+    }
+  }
   return value;
 }

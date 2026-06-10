@@ -26,6 +26,7 @@ type DigestNode struct {
 	Group   *string     `json:"group"`
 	URL     string      `json:"url"`
 	Summary string      `json:"summary"`
+	Hash    string      `json:"hash,omitempty"`
 	Facts   []Fact      `json:"facts"`
 	Sources []SourceRef `json:"sources"`
 	Mode    string      `json:"mode"`

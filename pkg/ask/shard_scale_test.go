@@ -102,12 +102,28 @@ func TestShardPipelineAtCloudflareScale(t *testing.T) {
 	if len(assembled.SkippedShards) != 0 || len(assembled.Missing) != 0 {
 		t.Fatalf("expected full coverage: skipped=%d missing=%d", len(assembled.SkippedShards), len(assembled.Missing))
 	}
-	info, err := os.Stat(filepath.Join(root, ".hev-ask/digest.json"))
-	if err != nil {
+	var treeBytes int64
+	if err := filepath.WalkDir(filepath.Join(root, ".hev-ask"), func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || filepath.Ext(path) != ".md" {
+			return nil
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		treeBytes += info.Size()
+		return nil
+	}); err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("assemble: %d chunks from %d shards in %s; digest.json %.1f MB (%s heap)",
-		assembled.Chunks, assembled.Shards, assembleDuration, float64(info.Size())/1e6, heapMB())
+	if treeBytes == 0 {
+		t.Fatal("expected assembled digest tree to contain markdown files")
+	}
+	t.Logf("assemble: %d chunks from %d shards in %s; digest tree %.1f MB (%s heap)",
+		assembled.Chunks, assembled.Shards, assembleDuration, float64(treeBytes)/1e6, heapMB())
 
 	// Refresh: a single-doc edit must re-pend exactly one shard.
 	page := filepath.Join(root, "src/content/docs/product-42/area-2/page-25.mdx")

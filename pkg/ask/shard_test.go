@@ -222,7 +222,7 @@ func TestShardedCorpusRoundTrip(t *testing.T) {
 	if len(assembled.SkippedShards) != 0 || len(assembled.Missing) != 0 {
 		t.Fatalf("expected full coverage, skipped=%v missing=%v", assembled.SkippedShards, assembled.Missing)
 	}
-	graph, err := LoadDigest(filepath.Join(root, ".hev-ask/digest.json"))
+	graph, err := LoadDigest(filepath.Join(root, ".hev-ask"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,11 +1,12 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { callClaude, type AnthropicTool } from '../llm.ts';
 import { chunkDocument, hashableChunkText, type Chunk, type SourceDocument } from '../search/chunk.ts';
 import { classifyMode, distinctiveTokens, extractFacts } from './facts.ts';
 import { parseFrontmatter } from './frontmatter.ts';
 import { normalizeDigest, type Digest, type DigestNode } from './schema.ts';
+import { digestTreeFiles, readDigestArtifact } from './tree.ts';
 
 export interface DigestBuildOptions {
   siteRoot: string;
@@ -94,7 +95,7 @@ export interface EmittedDistillation {
 export interface DigestInput {
   contentHash: string;
   digestPath: string;
-  /** True when the committed digest.json already matches this corpus — no rebuild needed. */
+  /** True when the committed digest tree already matches this corpus — no rebuild needed. */
   upToDate: boolean;
   sections: Array<{ id: string; url: string; title: string; text: string }>;
 }
@@ -133,7 +134,7 @@ export function assembleDigest(emitted: EmittedDistillation, corpus: CorpusBuild
 export async function buildDigest(options: DigestBuildOptions): Promise<DigestBuildResult> {
   const corpus = await buildCorpus(options);
   const outPath = path.resolve(options.siteRoot, options.digestPath);
-  const existing = await readExistingDigest(outPath);
+  const existing = readExistingDigest(options.siteRoot, options.digestPath);
   // Skip only when the committed artifact is already a current-version digest with
   // nodes built from this exact corpus. A v1 (node-less) artifact always rebuilds.
   if (existing && existing.version === 2 && existing.contentHash === corpus.contentHash && existing.nodes.length > 0) {
@@ -203,8 +204,21 @@ export function parseEmittedDigest(input: unknown): EmittedDistillation {
 }
 
 async function writeGraph(outPath: string, digest: Digest): Promise<void> {
-  await mkdir(path.dirname(outPath), { recursive: true });
-  await writeFile(outPath, JSON.stringify(digest, null, 2) + '\n', 'utf8');
+  if (path.extname(outPath).toLowerCase() === '.json') {
+    await mkdir(path.dirname(outPath), { recursive: true });
+    await writeFile(outPath, JSON.stringify(digest, null, 2) + '\n', 'utf8');
+    return;
+  }
+
+  await mkdir(outPath, { recursive: true });
+  const desired = new Set<string>();
+  for (const file of digestTreeFiles(digest)) {
+    const target = path.join(outPath, file.path);
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(target, file.body, 'utf8');
+    desired.add(file.path);
+  }
+  await removeOrphanDigestMarkdown(outPath, desired);
 }
 
 /**
@@ -221,7 +235,7 @@ export async function writeCorpusInput(options: {
   chunkHeadingDepth: number;
 }): Promise<{ path: string; upToDate: boolean; sections: number }> {
   const corpus = await buildCorpus(options);
-  const committed = await readExistingDigest(path.resolve(options.siteRoot, options.digestPath));
+  const committed = readExistingDigest(options.siteRoot, options.digestPath);
   const upToDate = Boolean(
     committed && committed.version === 2 && committed.contentHash === corpus.contentHash && committed.nodes.length > 0,
   );
@@ -282,6 +296,7 @@ export function buildNodes(chunks: Chunk[], summaryById: Map<string, string>): D
         group: chunk.group ?? null,
         url: chunk.url,
         summary,
+        hash: sectionHash(chunk),
         facts,
         sources: [{ chunkId: chunk.id, url: chunk.url, anchor: chunk.anchorId ?? null }],
         mode: classifyMode(chunk.group),
@@ -348,12 +363,31 @@ export function sha256(text: string): string {
   return createHash('sha256').update(text).digest('hex');
 }
 
-async function readExistingDigest(file: string): Promise<Digest | null> {
-  try {
-    return normalizeDigest(JSON.parse(await readFile(file, 'utf8')));
-  } catch {
-    return null;
-  }
+function sectionHash(chunk: Chunk): string {
+  return sha256(`${chunk.id}\n${chunk.text}`);
+}
+
+function readExistingDigest(siteRoot: string, digestPath: string): Digest | null {
+  const digest = readDigestArtifact(siteRoot, digestPath);
+  return digest.version === 2 && digest.nodes.length > 0 ? digest : null;
+}
+
+async function removeOrphanDigestMarkdown(root: string, desired: Set<string>, relDir = ''): Promise<void> {
+  const dir = path.join(root, relDir);
+  const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+  await Promise.all(
+    entries.map(async (entry) => {
+      if (entry.isDirectory()) {
+        if (entry.name === 'shards') return;
+        await removeOrphanDigestMarkdown(root, desired, path.join(relDir, entry.name));
+        return;
+      }
+      const rel = path.join(relDir, entry.name).replace(/\\/g, '/');
+      if (path.extname(entry.name).toLowerCase() === '.md' && !desired.has(rel)) {
+        await rm(path.join(root, rel), { force: true });
+      }
+    }),
+  );
 }
 
 async function resolveContentFiles(

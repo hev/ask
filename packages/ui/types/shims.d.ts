@@ -19,6 +19,7 @@ declare module 'virtual:hev-ask/config' {
     chunkHeadingDepth: number;
     candidatePerSearch: number;
     perDocCap: number;
+    digestDir?: string;
     digestPath: string;
     digestContentGlobs?: string[];
     endpoint: string;

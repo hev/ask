@@ -212,6 +212,7 @@ func BuildNodes(chunks []Chunk, summaryByID map[string]string) []DigestNode {
 			Group:   group,
 			URL:     chunk.URL,
 			Summary: summary,
+			Hash:    SectionHash(chunk),
 			Facts:   facts,
 			Sources: []SourceRef{{ChunkID: chunk.ID, URL: chunk.URL, Anchor: anchor}},
 			Mode:    ClassifyMode(chunk.Group),
@@ -251,6 +252,9 @@ func BuildOverview(chunks []Chunk) string {
 }
 
 func WriteDigest(path string, digest Digest) error {
+	if isDigestTreePath(path) {
+		return WriteDigestTree(path, digest)
+	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
@@ -259,6 +263,10 @@ func WriteDigest(path string, digest Digest) error {
 		return err
 	}
 	return os.WriteFile(path, append(data, '\n'), 0o644)
+}
+
+func SectionHash(chunk Chunk) string {
+	return SHA256Hex(chunk.ID + "\n" + chunk.Text)
 }
 
 func SHA256Hex(text string) string {
@@ -277,7 +285,7 @@ func normalizeBuildOptions(options *BuildOptions) {
 		options.BasePath = "/docs/"
 	}
 	if options.DigestPath == "" {
-		options.DigestPath = ".hev-ask/digest.json"
+		options.DigestPath = ".hev-ask"
 	}
 	if options.ChunkHeadingDepth == 0 {
 		options.ChunkHeadingDepth = 3

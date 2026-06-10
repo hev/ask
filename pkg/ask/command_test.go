@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -43,15 +42,40 @@ func TestCommandGroupRunGlossaryAlias(t *testing.T) {
 	}
 }
 
+func TestCommandGroupRunTreeCatAndFacts(t *testing.T) {
+	path := writeCommandTestGraph(t)
+	group := NewCommandGroup(CommandOptions{DigestDir: path})
+
+	var stdout, stderr bytes.Buffer
+	if err := group.Run(context.Background(), []string{"tree"}, strings.NewReader(""), &stdout, &stderr); err != nil {
+		t.Fatalf("tree failed: %v\nstderr: %s", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "api/") || !strings.Contains(stdout.String(), "CLI > Flags") {
+		t.Fatalf("unexpected tree output: %s", stdout.String())
+	}
+
+	stdout.Reset()
+	if err := group.Run(context.Background(), []string{"cat", "api/cli/flags"}, strings.NewReader(""), &stdout, &stderr); err != nil {
+		t.Fatalf("cat failed: %v\nstderr: %s", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Command flags configure digest paths and output.") {
+		t.Fatalf("unexpected cat output: %s", stdout.String())
+	}
+
+	stdout.Reset()
+	if err := group.Run(context.Background(), []string{"facts", "api/cli/flags"}, strings.NewReader(""), &stdout, &stderr); err != nil {
+		t.Fatalf("facts failed: %v\nstderr: %s", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "--digest-path") {
+		t.Fatalf("unexpected facts output: %s", stdout.String())
+	}
+}
+
 func writeCommandTestGraph(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	path := filepath.Join(dir, "digest.json")
-	data, err := json.Marshal(testDigest())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, data, 0o600); err != nil {
+	path := filepath.Join(dir, ".hev-ask")
+	if err := WriteDigest(path, testDigest()); err != nil {
 		t.Fatal(err)
 	}
 	return path

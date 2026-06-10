@@ -83,7 +83,7 @@ func TestBuildDigestCallsAnthropicAndWritesGraph(t *testing.T) {
 	if result.Status != "built" {
 		t.Fatalf("unexpected result: %#v", result)
 	}
-	digest, err := LoadDigest(filepath.Join(root, ".hev-ask/digest.json"))
+	digest, err := LoadDigest(filepath.Join(root, ".hev-ask"))
 	if err != nil {
 		t.Fatal(err)
 	}

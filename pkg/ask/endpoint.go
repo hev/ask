@@ -36,6 +36,86 @@ func (client EndpointClient) ListGlossary(ctx context.Context) ([]GlossaryEntry,
 	return payload.Terms, nil
 }
 
+func (client EndpointClient) Suggestions(ctx context.Context) ([]string, error) {
+	var payload struct {
+		Suggestions []string `json:"suggestions"`
+	}
+	if err := client.getJSON(ctx, "", &payload); err != nil {
+		return nil, err
+	}
+	return payload.Suggestions, nil
+}
+
+func (client EndpointClient) Digest(ctx context.Context) (Digest, error) {
+	glossary, err := client.ListGlossary(ctx)
+	if err != nil {
+		return Digest{}, err
+	}
+	sections, err := client.ListSections(ctx, "")
+	if err != nil {
+		return Digest{}, err
+	}
+	overview, err := client.Overview(ctx)
+	if err != nil {
+		return Digest{}, err
+	}
+	suggestions, _ := client.Suggestions(ctx)
+	nodes := make([]DigestNode, 0, len(sections))
+	for _, section := range sections {
+		node, err := client.GetSection(ctx, section.ID)
+		if err != nil {
+			return Digest{}, err
+		}
+		nodes = append(nodes, node)
+	}
+	digest := Digest{
+		Version:     2,
+		Context:     overview.Context,
+		Glossary:    glossary,
+		Overview:    overview.Overview,
+		Suggestions: suggestions,
+		Nodes:       nodes,
+		Edges:       []DigestEdge{},
+	}
+	normalizeDigest(&digest)
+	return digest, nil
+}
+
+func (client EndpointClient) ArchiveContentHash(ctx context.Context) (string, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodHead, client.resourceURL("archive"), nil)
+	if err != nil {
+		return "", err
+	}
+	response, err := client.http().Do(request)
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+	if response.StatusCode >= 400 {
+		return "", endpointStatusError(response)
+	}
+	return response.Header.Get("x-hev-ask-content-hash"), nil
+}
+
+func (client EndpointClient) DownloadArchive(ctx context.Context, path string) (Digest, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, client.resourceURL("archive"), nil)
+	if err != nil {
+		return Digest{}, err
+	}
+	response, err := client.http().Do(request)
+	if err != nil {
+		return Digest{}, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode >= 400 {
+		return Digest{}, endpointStatusError(response)
+	}
+	if err := ExtractDigestArchive(response.Body, path); err != nil {
+		return Digest{}, err
+	}
+	return LoadDigest(path)
+}
+
 func (client EndpointClient) GetGlossaryEntry(ctx context.Context, term string) (GlossaryEntry, error) {
 	var entry GlossaryEntry
 	if err := client.getJSON(ctx, "glossary/"+url.PathEscape(term), &entry); err != nil {

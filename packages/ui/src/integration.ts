@@ -1,10 +1,8 @@
 import type { AstroIntegration } from 'astro';
 import { execFile } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { EMPTY_DIGEST, normalizeDigest } from './digest/schema';
+import { readDigestArtifact } from './digest/tree';
 import type { HevAskOptions, ResolvedConfig } from './types';
 
 const CONFIG_VIRTUAL_ID = 'virtual:hev-ask/config';
@@ -28,7 +26,7 @@ export default function hevAsk(options: HevAskOptions = {}): AstroIntegration {
     chunkHeadingDepth: options.chunkHeadingDepth ?? 3,
     candidatePerSearch: options.candidatePerSearch ?? 8,
     perDocCap: options.perDocCap ?? 2,
-    digestPath: options.digestPath ?? '.hev-ask/digest.json',
+    digestPath: options.digestDir ?? options.digestPath ?? '.hev-ask',
     digestContentGlobs: options.digestContentGlobs,
   };
 
@@ -105,11 +103,7 @@ function virtualDigestPlugin(config: ResolvedConfig, siteRoot: string) {
 }
 
 function readDigest(siteRoot: string, digestPath: string) {
-  try {
-    return normalizeDigest(JSON.parse(readFileSync(path.resolve(siteRoot, digestPath), 'utf8')));
-  } catch {
-    return EMPTY_DIGEST;
-  }
+  return readDigestArtifact(siteRoot, digestPath);
 }
 
 async function runDigestBuild(siteRoot: string, config: ResolvedConfig): Promise<string> {
@@ -118,7 +112,7 @@ async function runDigestBuild(siteRoot: string, config: ResolvedConfig): Promise
     askBin,
     'digest',
     'build',
-    '--digest-path',
+    '--digest-dir',
     config.digestPath,
     '--base-path',
     config.basePath,

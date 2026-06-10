@@ -69,8 +69,14 @@ export interface HevAskOptions {
   perDocCap?: number;
 
   /**
-   * Path to the committed ask digest artifact, relative to the site root.
-   * @default '.hev-ask/digest.json'
+   * Path to the committed ask digest tree, relative to the site root.
+   * @default '.hev-ask'
+   */
+  digestDir?: string;
+
+  /**
+   * Deprecated alias for `digestDir`.
+   * @default '.hev-ask'
    */
   digestPath?: string;
 

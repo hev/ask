@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -41,11 +42,22 @@ func BuildDigest(options BuildDigestOptions) (BuildResult, error) {
 	if err == nil && existing.Version == 2 && existing.ContentHash == corpus.ContentHash && len(existing.Nodes) > 0 {
 		return BuildResult{Status: "skipped", Path: outPath, ContentHash: corpus.ContentHash, Chunks: len(corpus.Chunks)}, nil
 	}
+	changed := corpus.Chunks
+	if err == nil && existing.Version == 2 && len(existing.Nodes) > 0 {
+		changed = changedChunks(corpus.Chunks, existing)
+		if len(changed) == 0 {
+			refreshed := digestWithContentHash(existing, corpus.ContentHash)
+			if err := WriteDigest(outPath, refreshed); err != nil {
+				return BuildResult{}, err
+			}
+			return BuildResult{Status: "skipped", Path: outPath, ContentHash: corpus.ContentHash, Chunks: len(corpus.Chunks)}, nil
+		}
+	}
 
 	// The single-shot build hands the whole corpus to one model call. Past this
 	// size the distillation degrades (or truncates), so fail loudly and point
 	// at the sharded flow — same policy as the max_tokens truncation check.
-	if size := len(renderCorpusText(CorpusSections(corpus))); size > MaxSingleShotCorpusBytes {
+	if size := len(renderCorpusText(CorpusSections(CorpusBuild{Chunks: changed}))); size > MaxSingleShotCorpusBytes {
 		return BuildResult{}, fmt.Errorf(
 			"corpus is ~%dKB of text — too large for a single-shot digest build (limit ~%dKB); shard it instead: `ask digest corpus --shards-dir .hev-ask/shards`, distil each shard with the build-digest skill, then `ask digest assemble --input-dir .hev-ask/shards`",
 			size/1024, MaxSingleShotCorpusBytes/1024,
@@ -60,15 +72,59 @@ func BuildDigest(options BuildDigestOptions) (BuildResult, error) {
 		return BuildResult{}, fmt.Errorf("ANTHROPIC_API_KEY is required to build a fresh digest")
 	}
 
-	emitted, err := callDigestModel(options, apiKey, corpus)
+	emitted, err := callDigestModel(options, apiKey, CorpusBuild{Chunks: changed, ContentHash: corpus.ContentHash})
 	if err != nil {
 		return BuildResult{}, err
+	}
+	if len(changed) < len(corpus.Chunks) {
+		emitted = mergeIncrementalDistillation(existing, emitted, changed)
 	}
 	digest := AssembleDigest(emitted, corpus)
 	if err := WriteDigest(outPath, digest); err != nil {
 		return BuildResult{}, err
 	}
 	return BuildResult{Status: "built", Path: outPath, ContentHash: corpus.ContentHash, Chunks: len(corpus.Chunks)}, nil
+}
+
+func changedChunks(chunks []Chunk, existing Digest) []Chunk {
+	byID := map[string]DigestNode{}
+	for _, node := range existing.Nodes {
+		byID[node.ID] = node
+	}
+	changed := make([]Chunk, 0, len(chunks))
+	for _, chunk := range chunks {
+		node, ok := byID[chunk.ID]
+		if !ok || strings.TrimSpace(node.Summary) == "" || node.Hash == "" || node.Hash != SectionHash(chunk) {
+			changed = append(changed, chunk)
+		}
+	}
+	return changed
+}
+
+func mergeIncrementalDistillation(existing Digest, emitted EmittedDistillation, changed []Chunk) EmittedDistillation {
+	changedIDs := map[string]bool{}
+	for _, chunk := range changed {
+		changedIDs[chunk.ID] = true
+	}
+	summaries := make([]SectionSummaryIn, 0, len(existing.Nodes)+len(emitted.Summaries))
+	for _, node := range existing.Nodes {
+		if !changedIDs[node.ID] && strings.TrimSpace(node.Summary) != "" {
+			summaries = append(summaries, SectionSummaryIn{ID: node.ID, Summary: node.Summary})
+		}
+	}
+	summaries = append(summaries, emitted.Summaries...)
+	sort.Slice(summaries, func(i, j int) bool { return summaries[i].ID < summaries[j].ID })
+	return EmittedDistillation{
+		Context:     firstNonEmpty(existing.Context, emitted.Context),
+		Glossary:    existing.Glossary,
+		Summaries:   summaries,
+		Suggestions: existing.Suggestions,
+	}
+}
+
+func digestWithContentHash(digest Digest, contentHash string) Digest {
+	digest.ContentHash = contentHash
+	return digest
 }
 
 func callDigestModel(options BuildDigestOptions, apiKey string, corpus CorpusBuild) (EmittedDistillation, error) {

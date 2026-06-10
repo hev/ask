@@ -4,7 +4,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { buildCorpus } from './build.ts';
 import { extractFacts } from './facts.ts';
-import { normalizeDigest } from './schema.ts';
+import { readDigestArtifact } from './tree.ts';
 
 const execFileAsync = promisify(execFile);
 
@@ -65,8 +65,7 @@ async function verifyFidelity(
   options: VerifyAnchorsOptions,
   chunks: Awaited<ReturnType<typeof buildCorpus>>['chunks'],
 ): Promise<{ dropped: VerifyAnchorsResult['dropped']; uncovered: string[] }> {
-  const digestPath = path.resolve(options.siteRoot, options.digestPath ?? '.hev-ask/digest.json');
-  const digest = normalizeDigest(await readJson(digestPath));
+  const digest = readDigestArtifact(options.siteRoot, options.digestPath ?? '.hev-ask');
   if (!digest.nodes.length) return { dropped: [], uncovered: [] }; // v1 / degraded digest — nothing to check
 
   const nodeById = new Map(digest.nodes.map((node) => [node.id, node]));
@@ -87,14 +86,6 @@ async function verifyFidelity(
   }
 
   return { dropped, uncovered };
-}
-
-async function readJson(file: string): Promise<unknown> {
-  try {
-    return JSON.parse(await readFile(file, 'utf8'));
-  } catch {
-    return null;
-  }
 }
 
 async function findHtmlWithId(files: string[], id: string): Promise<boolean> {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	askpkg "github.com/hev/ask/pkg/ask"
@@ -48,38 +49,15 @@ func run(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer)
 	rest := commandArgs[1:]
 
 	switch command {
-	case "glossary":
-		return runGlossary(ctx, opts, rest, stdout, jsonOut)
-	case "sections":
-		return runSections(ctx, opts, rest, stdout, jsonOut)
-	case "section":
-		return runSection(ctx, opts, rest, stdout, jsonOut)
-	case "overview":
-		if len(rest) != 0 {
-			return fmt.Errorf("overview takes no arguments")
-		}
-		return runOverview(ctx, opts, stdout, jsonOut)
-	case "search":
-		if len(rest) == 0 {
-			return fmt.Errorf("search requires a query")
-		}
-		return runSearch(ctx, opts, strings.Join(rest, " "), stdout, jsonOut)
-	case "answer":
-		if len(rest) == 0 {
-			return fmt.Errorf("answer requires a query")
-		}
-		return runAnswer(ctx, opts, strings.Join(rest, " "), stdout, jsonOut)
+	case "tree", "ls", "head", "cat", "facts", "grep", "glossary", "sections", "section", "overview", "search", "answer", "mcp":
+		return askpkg.NewCommandGroup(askpkg.CommandOptions{
+			DigestDir:  opts.digestPath,
+			Endpoint:   opts.endpoint,
+			JSONOutput: jsonOut,
+			MaxResults: opts.maxResults,
+		}).Run(ctx, commandArgs, os.Stdin, stdout, stderr)
 	case "digest":
 		return runDigest(ctx, opts, rest, stdout)
-	case "mcp":
-		if len(rest) != 0 {
-			return fmt.Errorf("mcp takes no arguments")
-		}
-		return askpkg.ServeMCP(ctx, askpkg.MCPOptions{
-			DigestPath: opts.digestPath,
-			Endpoint:   opts.endpoint,
-			MaxResults: opts.maxResults,
-		}, os.Stdin, stdout)
 	case "help", "-h", "--help":
 		usage(stdout)
 		return nil
@@ -91,7 +69,7 @@ func run(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer)
 
 func runDigest(_ context.Context, opts options, args []string, stdout io.Writer) error {
 	if len(args) == 0 {
-		return fmt.Errorf("digest requires build, corpus, assemble, verify, or status")
+		return fmt.Errorf("digest requires build, corpus, assemble, verify, status, or migrate")
 	}
 	command := args[0]
 	rest := args[1:]
@@ -235,6 +213,27 @@ func runDigest(_ context.Context, opts options, args []string, stdout io.Writer)
 				fmt.Fprintf(stdout, "  - %s: %s (%d sections, %dKB)\n", shard.State, shard.ID, shard.Sections, shard.Bytes/1024)
 			}
 		}
+		return nil
+	case "migrate":
+		inputPath, rest, err := parseValueFlag(rest, "--input")
+		if err != nil {
+			return err
+		}
+		buildOptions, rest, err = parseBuildFlags(buildOptions, rest)
+		if err != nil {
+			return err
+		}
+		if len(rest) != 0 {
+			return fmt.Errorf("digest migrate got unexpected arguments: %s", strings.Join(rest, " "))
+		}
+		if inputPath == "" {
+			inputPath = legacyDigestPath(buildOptions.DigestPath)
+		}
+		result, err := askpkg.MigrateLegacyDigest(".", inputPath, buildOptions.DigestPath)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(stdout, "[hev-ask] digest:migrated %s -> %s (%d chunks)\n", result.From, result.Path, result.Chunks)
 		return nil
 	case "build":
 		buildOptions, rest, err = parseBuildFlags(buildOptions, rest)
@@ -465,11 +464,17 @@ func runAnswer(ctx context.Context, opts options, query string, stdout io.Writer
 }
 
 func parseGlobalFlags(args []string) (options, []string, error) {
-	opts := options{digestPath: ".hev-ask/digest.json", maxResults: 8, basePath: "/docs/", chunkHeadingDepth: 3}
+	opts := options{digestPath: ".hev-ask", maxResults: 8, basePath: "/docs/", chunkHeadingDepth: 3}
 	var rest []string
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		switch arg {
+		case "--digest-dir":
+			if i+1 >= len(args) {
+				return opts, nil, fmt.Errorf("--digest-dir requires a value")
+			}
+			opts.digestPath = args[i+1]
+			i++
 		case "--digest-path":
 			if i+1 >= len(args) {
 				return opts, nil, fmt.Errorf("--digest-path requires a value")
@@ -574,6 +579,13 @@ func parseVerifyFlags(options askpkg.VerifyOptions, args []string) (askpkg.Verif
 	return options, rest, nil
 }
 
+func legacyDigestPath(digestPath string) string {
+	if strings.EqualFold(filepath.Ext(digestPath), ".json") {
+		return digestPath
+	}
+	return filepath.Join(digestPath, "digest.json")
+}
+
 func parseValueFlagDefault(args []string, name string, fallback string) (string, []string, error) {
 	value, rest, err := parseValueFlag(args, name)
 	if err != nil {
@@ -604,6 +616,12 @@ func parseBuildFlags(options askpkg.BuildOptions, args []string) (askpkg.BuildOp
 		case "--digest-path":
 			if i+1 >= len(args) {
 				return options, nil, fmt.Errorf("--digest-path requires a value")
+			}
+			options.DigestPath = args[i+1]
+			i++
+		case "--digest-dir":
+			if i+1 >= len(args) {
+				return options, nil, fmt.Errorf("--digest-dir requires a value")
 			}
 			options.DigestPath = args[i+1]
 			i++
@@ -726,6 +744,10 @@ func writeSearchResults(w io.Writer, response askpkg.KeywordResponse) {
 
 func writeVerifyResult(w io.Writer, result askpkg.VerifyResult, strict bool) error {
 	failed := false
+	for _, treeErr := range result.TreeErrors {
+		fmt.Fprintf(w, "[hev-ask] digest tree integrity: %s\n", treeErr)
+		failed = true
+	}
 	for _, missing := range result.Missing {
 		fmt.Fprintf(w, "[hev-ask] missing anchor %s for %s in %s\n", missing.AnchorID, missing.URL, missing.File)
 		failed = true
@@ -768,14 +790,21 @@ func writeVerifyResult(w io.Writer, result askpkg.VerifyResult, strict bool) err
 
 func usage(w io.Writer) {
 	fmt.Fprintln(w, `Usage:
-  ask [--digest-path .hev-ask/digest.json] [--endpoint URL] [--json] <command>
+  ask [--digest-dir .hev-ask] [--endpoint URL] [--json] <command>
 
 Commands:
+  tree
+  ls [path]
+  head <path>
+  cat <path>
+  facts <path>
+  grep <query>
   digest build [--digest-model model]
   digest corpus [--out path | --shards-dir dir [--shard-bytes n]]
   digest assemble [--input path | --input-dir dir]
   digest verify [--skip-build] [--strict]
   digest status [--shards-dir dir]
+  digest migrate
   glossary list
   glossary get <term>
   sections list [--group GROUP]

@@ -16,10 +16,11 @@ type VerifyOptions struct {
 }
 
 type VerifyResult struct {
-	Checked   int
-	Missing   []MissingAnchor
-	Dropped   []DroppedLiteral
-	Uncovered []string
+	Checked    int
+	Missing    []MissingAnchor
+	Dropped    []DroppedLiteral
+	Uncovered  []string
+	TreeErrors []string
 }
 
 type MissingAnchor struct {
@@ -55,8 +56,25 @@ func VerifyAnchors(options VerifyOptions) (VerifyResult, error) {
 	if err != nil {
 		return VerifyResult{}, err
 	}
-	distDir := resolveSitePath(options.SiteRoot, options.DistDir)
 	result := VerifyResult{}
+	digestPath := resolveSitePath(options.SiteRoot, options.DigestPath)
+	if stat, statErr := os.Stat(digestPath); statErr == nil && stat.IsDir() && isDigestTreePath(digestPath) {
+		digest, err := LoadDigest(digestPath)
+		if err != nil {
+			return VerifyResult{}, fmt.Errorf("digest tree integrity failed: %w", err)
+		}
+		integrity, err := CheckDigestTreeIntegrity(digestPath, digest)
+		if err != nil {
+			return VerifyResult{}, fmt.Errorf("digest tree integrity failed: %w", err)
+		}
+		for _, orphan := range integrity.Orphans {
+			result.TreeErrors = append(result.TreeErrors, "orphan digest file: "+orphan)
+		}
+		if digest.ContentHash != "" && digest.ContentHash != corpus.ContentHash {
+			result.TreeErrors = append(result.TreeErrors, "meta contentHash does not match the current corpus; run `ask digest build`")
+		}
+	}
+	distDir := resolveSitePath(options.SiteRoot, options.DistDir)
 	for _, chunk := range corpus.Chunks {
 		if chunk.AnchorID == "" {
 			continue
@@ -77,7 +95,11 @@ func VerifyAnchors(options VerifyOptions) (VerifyResult, error) {
 func verifyFidelity(options BuildOptions, chunks []Chunk) ([]DroppedLiteral, []string) {
 	digest, err := LoadDigest(resolveSitePath(options.SiteRoot, options.DigestPath))
 	if err != nil || len(digest.Nodes) == 0 {
-		return []DroppedLiteral{}, []string{}
+		uncovered := make([]string, 0, len(chunks))
+		for _, chunk := range chunks {
+			uncovered = append(uncovered, chunk.ID)
+		}
+		return []DroppedLiteral{}, uncovered
 	}
 	byID := map[string]DigestNode{}
 	for _, node := range digest.Nodes {

@@ -25,7 +25,7 @@ try {
       siteRoot: process.cwd(),
       collections: flags.collections.length ? flags.collections : ['docs'],
       basePath: flags.basePath ?? '/docs/',
-      digestPath: flags.digestPath ?? '.hev-ask/digest.json',
+      digestPath: flags.digestPath ?? '.hev-ask',
       digestContentGlobs: flags.digestContentGlobs.length ? flags.digestContentGlobs : undefined,
       chunkHeadingDepth: flags.chunkHeadingDepth ?? 3,
       digestModel: flags.digestModel ?? 'claude-opus-4-8',
@@ -36,7 +36,7 @@ try {
       siteRoot: process.cwd(),
       collections: flags.collections.length ? flags.collections : ['docs'],
       basePath: flags.basePath ?? '/docs/',
-      digestPath: flags.digestPath ?? '.hev-ask/digest.json',
+      digestPath: flags.digestPath ?? '.hev-ask',
       outPath: flags.out ?? '.hev-ask/digest-input.json',
       digestContentGlobs: flags.digestContentGlobs.length ? flags.digestContentGlobs : undefined,
       chunkHeadingDepth: flags.chunkHeadingDepth ?? 3,
@@ -48,7 +48,7 @@ try {
       siteRoot: process.cwd(),
       collections: flags.collections.length ? flags.collections : ['docs'],
       basePath: flags.basePath ?? '/docs/',
-      digestPath: flags.digestPath ?? '.hev-ask/digest.json',
+      digestPath: flags.digestPath ?? '.hev-ask',
       inputPath: flags.input ?? '.hev-ask/digest-distill.json',
       digestContentGlobs: flags.digestContentGlobs.length ? flags.digestContentGlobs : undefined,
       chunkHeadingDepth: flags.chunkHeadingDepth ?? 3,
@@ -59,7 +59,7 @@ try {
       siteRoot: process.cwd(),
       collections: flags.collections.length ? flags.collections : ['docs'],
       basePath: flags.basePath ?? '/docs/',
-      digestPath: flags.digestPath ?? '.hev-ask/digest.json',
+      digestPath: flags.digestPath ?? '.hev-ask',
       digestContentGlobs: flags.digestContentGlobs.length ? flags.digestContentGlobs : undefined,
       chunkHeadingDepth: flags.chunkHeadingDepth ?? 3,
       buildCommand: flags.buildCommand,
@@ -97,7 +97,7 @@ try {
     }
   } else {
     console.error(
-      'Usage: ask digest build|corpus|assemble|verify [--collection docs] [--base-path /docs/] [--out path] [--input path] [--strict]',
+      'Usage: ask digest build|corpus|assemble|verify [--collection docs] [--base-path /docs/] [--digest-dir .hev-ask] [--out path] [--input path] [--strict]',
     );
     process.exitCode = 1;
   }
@@ -117,7 +117,7 @@ function parseFlags(args: string[]): Flags {
     } else if (arg === '--base-path' && next) {
       flags.basePath = next;
       i += 1;
-    } else if (arg === '--digest-path' && next) {
+    } else if ((arg === '--digest-dir' || arg === '--digest-path') && next) {
       flags.digestPath = next;
       i += 1;
     } else if (arg === '--content-glob' && next) {

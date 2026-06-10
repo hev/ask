@@ -36,6 +36,8 @@ export interface DigestNode {
   url: string;
   /** Model-distilled prose. May paraphrase; exact strings live in `facts`. */
   summary: string;
+  /** Per-section source hash used by the incremental digest builder. */
+  hash?: string;
   /** Deterministically extracted verbatim literals. */
   facts: Fact[];
   /** Provenance — for a section node, its own chunk. */
@@ -144,6 +146,7 @@ function normalizeNode(value: unknown): DigestNode | null {
     group: typeof maybe.group === 'string' ? maybe.group : null,
     url: maybe.url,
     summary: typeof maybe.summary === 'string' ? maybe.summary : '',
+    hash: typeof maybe.hash === 'string' ? maybe.hash : undefined,
     facts: Array.isArray(maybe.facts)
       ? maybe.facts.map((fact) => normalizeFact(fact)).filter((fact): fact is Fact => fact !== null)
       : [],

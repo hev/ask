@@ -4,9 +4,32 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 func LoadDigest(path string) (Digest, error) {
+	stat, err := os.Stat(path)
+	if err == nil && stat.IsDir() {
+		digest, treeErr := LoadDigestTree(path)
+		if treeErr == nil {
+			return digest, nil
+		}
+		legacyPath := filepath.Join(path, "digest.json")
+		if _, legacyErr := os.Stat(legacyPath); legacyErr == nil {
+			return loadDigestJSON(legacyPath)
+		}
+		return Digest{}, treeErr
+	}
+	if err != nil && isDigestTreePath(path) {
+		legacyPath := filepath.Join(path, "digest.json")
+		if _, legacyErr := os.Stat(legacyPath); legacyErr == nil {
+			return loadDigestJSON(legacyPath)
+		}
+	}
+	return loadDigestJSON(path)
+}
+
+func loadDigestJSON(path string) (Digest, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Digest{}, fmt.Errorf("read digest %q: %w", path, err)

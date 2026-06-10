@@ -1,6 +1,7 @@
 package ask
 
 import (
+	"encoding/json"
 	"regexp"
 	"strconv"
 	"strings"
@@ -71,6 +72,12 @@ func parseScalar(value string) any {
 	if regexpNumber.MatchString(value) {
 		if number, err := strconv.ParseFloat(value, 64); err == nil {
 			return number
+		}
+	}
+	if strings.HasPrefix(value, "[") || strings.HasPrefix(value, "{") || value == "null" {
+		var decoded any
+		if err := json.Unmarshal([]byte(value), &decoded); err == nil {
+			return decoded
 		}
 	}
 	return value

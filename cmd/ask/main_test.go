@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +14,7 @@ import (
 func writeTestDigest(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	path := filepath.Join(dir, "digest.json")
+	path := filepath.Join(dir, ".hev-ask")
 	apiGroup := "API"
 	flagsHeading := "Flags"
 	digest := askpkg.Digest{
@@ -40,11 +39,7 @@ func writeTestDigest(t *testing.T) string {
 			},
 		},
 	}
-	data, err := json.Marshal(digest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, data, 0o600); err != nil {
+	if err := askpkg.WriteDigest(path, digest); err != nil {
 		t.Fatal(err)
 	}
 	return path
@@ -83,6 +78,31 @@ func TestRunSearchJSON(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), `"url": "/docs/api/cli#flags"`) {
 		t.Fatalf("unexpected output: %s", stdout.String())
+	}
+}
+
+func TestRunTreeCatFacts(t *testing.T) {
+	path := writeTestDigest(t)
+	var stdout, stderr bytes.Buffer
+	if err := run(context.Background(), []string{"--digest-dir", path, "tree"}, &stdout, &stderr); err != nil {
+		t.Fatalf("tree failed: %v\nstderr: %s", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "api/cli/flags") {
+		t.Fatalf("unexpected tree output: %s", stdout.String())
+	}
+	stdout.Reset()
+	if err := run(context.Background(), []string{"--digest-dir", path, "cat", "api/cli/flags"}, &stdout, &stderr); err != nil {
+		t.Fatalf("cat failed: %v\nstderr: %s", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Command flags configure digest paths.") {
+		t.Fatalf("unexpected cat output: %s", stdout.String())
+	}
+	stdout.Reset()
+	if err := run(context.Background(), []string{"--digest-dir", path, "facts", "api/cli/flags"}, &stdout, &stderr); err != nil {
+		t.Fatalf("facts failed: %v\nstderr: %s", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "--digest-path") {
+		t.Fatalf("unexpected facts output: %s", stdout.String())
 	}
 }
 
@@ -128,7 +148,7 @@ func TestRunDigestCorpusAndAssemble(t *testing.T) {
 	if err := run(context.Background(), []string{"digest", "assemble"}, &stdout, &stderr); err != nil {
 		t.Fatalf("assemble failed: %v\nstderr: %s", err, stderr.String())
 	}
-	digest, err := askpkg.LoadDigest(filepath.Join(dir, ".hev-ask/digest.json"))
+	digest, err := askpkg.LoadDigest(filepath.Join(dir, ".hev-ask"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +176,7 @@ func TestRunDigestVerifySkipBuild(t *testing.T) {
 		Glossary:  []askpkg.GlossaryEntry{},
 		Summaries: []askpkg.SectionSummaryIn{{ID: "index#install", Summary: "Install ask."}},
 	}, mustCorpus(t, dir))
-	if err := askpkg.WriteDigest(filepath.Join(dir, ".hev-ask/digest.json"), digest); err != nil {
+	if err := askpkg.WriteDigest(filepath.Join(dir, ".hev-ask"), digest); err != nil {
 		t.Fatal(err)
 	}
 
@@ -192,7 +212,7 @@ func TestRunDigestBuildSkipsCurrentGraph(t *testing.T) {
 	}
 	corpus := mustCorpus(t, dir)
 	digest := askpkg.AssembleDigest(askpkg.EmittedDistillation{Context: "ctx", Glossary: []askpkg.GlossaryEntry{}}, corpus)
-	if err := askpkg.WriteDigest(filepath.Join(dir, ".hev-ask/digest.json"), digest); err != nil {
+	if err := askpkg.WriteDigest(filepath.Join(dir, ".hev-ask"), digest); err != nil {
 		t.Fatal(err)
 	}
 
