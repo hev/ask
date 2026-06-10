@@ -1,16 +1,16 @@
 openapi: 3.1.0
 info:
   title: hev ask API
-  version: 3.0.0
+  version: 3.1.0
   summary: Search, answer, and digest read API exposed by the @hevmind/ask Astro integration.
   description: |
     `@hevmind/ask` mounts these routes on a consuming Astro site (default base `/api/ask`,
     configurable via the integration's `endpoint` option). Two paths existed in v2:
     keyword + agentic **search** (`POST /api/ask`) and **suggestions** (`GET /api/ask`).
     v3 adds keyless **read** routes over the committed ask digest
-    (`/api/ask/glossary`, `/api/ask/sections`, `/api/ask/overview`) so a coding agent —
-    via the `ask` CLI, the MCP server, or a generated client — can query the docs
-    directly.
+    (`/api/ask/glossary`, `/api/ask/sections`, `/api/ask/overview`) plus
+    `/api/ask/archive` for bulk tree hydration, so a coding agent — via the
+    `ask` CLI, the MCP server, or a generated client — can query the docs directly.
 
     Degradation: with no `ANTHROPIC_API_KEY` configured on the server, `POST /api/ask`
     falls back to keyword mode (HTTP 200 with a `warning`). The read routes never call a
@@ -30,6 +30,8 @@ tags:
     description: Keyword and agentic search/answer.
   - name: digest
     description: Keyless reads over the committed ask digest.
+  - name: archive
+    description: Bulk hydrate transport for the committed `.hev-ask/` digest tree.
 
 paths:
   /api/ask:
@@ -38,7 +40,7 @@ paths:
       operationId: getSuggestions
       summary: Suggested questions and active model
       description: |
-        Returns the model-authored example questions baked into the committed graph,
+        Returns the model-authored example questions baked into the committed digest,
         shown by the overlay on open. Keyless — no model call.
       responses:
         "200":
@@ -99,7 +101,7 @@ paths:
       tags: [digest]
       operationId: listGlossary
       summary: List glossary terms
-      description: All glossary entries from the committed graph. Keyless.
+      description: All glossary entries from the committed digest. Keyless.
       responses:
         "200":
           description: The glossary.
@@ -203,6 +205,50 @@ paths:
                 properties:
                   overview: { type: string }
                   context: { type: string }
+
+  /api/ask/archive:
+    head:
+      tags: [archive]
+      operationId: headDigestArchive
+      summary: Check digest archive freshness
+      description: |
+        Returns cache headers for the compressed digest tree without the archive body.
+        Clients compare `x-hev-ask-content-hash` against their local cache before
+        downloading the full archive.
+      responses:
+        "200":
+          description: Digest archive metadata.
+          headers:
+            x-hev-ask-content-hash:
+              schema: { type: string }
+              description: Content hash of the committed digest tree.
+            cache-control:
+              schema: { type: string }
+            content-disposition:
+              schema: { type: string }
+    get:
+      tags: [archive]
+      operationId: getDigestArchive
+      summary: Download the digest tree archive
+      description: |
+        Returns a gzip-compressed tar archive of the committed `.hev-ask/`
+        markdown tree. This is the bulk hydrate path used by `ask mcp --endpoint`.
+      responses:
+        "200":
+          description: Gzip-compressed tar archive of the digest tree.
+          headers:
+            x-hev-ask-content-hash:
+              schema: { type: string }
+              description: Content hash of the committed digest tree.
+            cache-control:
+              schema: { type: string }
+            content-disposition:
+              schema: { type: string }
+          content:
+            application/gzip:
+              schema:
+                type: string
+                format: binary
 
 components:
   parameters:

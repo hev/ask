@@ -9,6 +9,7 @@ import {
   listGlossary,
   listSectionSummaries,
 } from './digest/read.ts';
+import { digestTreeFiles } from './digest/tree.ts';
 import { makeTelemetry, telemetryFromEnv } from './observability';
 import { hashableChunkText } from './search/chunk';
 import { buildIndex, prefilter, type Candidate, type Chunk } from './search/index';
@@ -50,10 +51,18 @@ function resolveTelemetry(locals: unknown) {
 
 // The overlay fetches suggested questions from the base route. Sub-routes expose
 // keyless reads over the committed digest for CLI, MCP, and generated clients.
-export const GET: APIRoute = ({ params, request }) => {
+export const GET: APIRoute = async ({ params, request }) => {
   const resource = resourceSegments(params.resource);
   if (!resource.length) return json({ suggestions: digest.suggestions ?? [], model: config.model });
   return readResource(resource, request);
+};
+
+export const HEAD: APIRoute = ({ params }) => {
+  const resource = resourceSegments(params.resource);
+  if (resource.length === 1 && decodePathValue(resource[0]).trim() === 'archive') {
+    return new Response(null, { status: 200, headers: archiveHeaders() });
+  }
+  return notFound();
 };
 
 export const POST: APIRoute = async ({ request, locals, params }) => {
@@ -154,9 +163,11 @@ export const POST: APIRoute = async ({ request, locals, params }) => {
   });
 };
 
-function readResource(resource: string[], request: Request): Response {
+async function readResource(resource: string[], request: Request): Promise<Response> {
   const [rawRoot, ...rest] = resource;
   const root = decodePathValue(rawRoot).trim();
+
+  if (root === 'archive' && rest.length === 0) return archiveResponse();
 
   if (root === 'glossary') {
     if (!rest.length) return json({ terms: listGlossary(digest) });
@@ -176,6 +187,103 @@ function readResource(resource: string[], request: Request): Response {
   if (root === 'overview' && rest.length === 0) return json(getOverview(digest));
 
   return notFound();
+}
+
+async function archiveResponse(): Promise<Response> {
+  const tar = writeTar(digestTreeFiles(digest));
+  const body = await gzip(tar);
+  return new Response(arrayBufferFor(body), { status: 200, headers: archiveHeaders() });
+}
+
+function archiveHeaders(): HeadersInit {
+  return {
+    'content-type': 'application/gzip',
+    'content-disposition': 'attachment; filename="hev-ask-digest.tar.gz"',
+    'cache-control': 'public, max-age=60',
+    'x-hev-ask-content-hash': digest.contentHash ?? '',
+  };
+}
+
+interface ArchiveFile {
+  path: string;
+  body: string;
+}
+
+function writeTar(files: ArchiveFile[]): Uint8Array {
+  const encoder = new TextEncoder();
+  const chunks: Uint8Array[] = [];
+  for (const file of files) {
+    const body = encoder.encode(file.body);
+    chunks.push(tarHeader(file.path, body.length));
+    chunks.push(body);
+    const padding = (512 - (body.length % 512)) % 512;
+    if (padding) chunks.push(new Uint8Array(padding));
+  }
+  chunks.push(new Uint8Array(1024));
+  const size = chunks.reduce((total, chunk) => total + chunk.length, 0);
+  const out = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return out;
+}
+
+function tarHeader(filePath: string, size: number): Uint8Array {
+  const header = new Uint8Array(512);
+  const { name, prefix } = tarNameParts(filePath);
+  writeAscii(header, 0, 100, name);
+  writeOctal(header, 100, 8, 0o644);
+  writeOctal(header, 108, 8, 0);
+  writeOctal(header, 116, 8, 0);
+  writeOctal(header, 124, 12, size);
+  writeOctal(header, 136, 12, 0);
+  header.fill(0x20, 148, 156);
+  header[156] = '0'.charCodeAt(0);
+  writeAscii(header, 257, 6, 'ustar');
+  writeAscii(header, 263, 2, '00');
+  writeAscii(header, 345, 155, prefix);
+  let checksum = 0;
+  for (const byte of header) checksum += byte;
+  writeOctal(header, 148, 8, checksum);
+  return header;
+}
+
+function tarNameParts(filePath: string): { name: string; prefix: string } {
+  const normalized = filePath.replace(/^\/+/, '');
+  if (normalized.length <= 100) return { name: normalized, prefix: '' };
+  const minNameStart = Math.max(0, normalized.length - 100);
+  for (let i = minNameStart; i >= 0; i -= 1) {
+    if (normalized[i] !== '/') continue;
+    const prefix = normalized.slice(0, i);
+    const name = normalized.slice(i + 1);
+    if (prefix.length <= 155 && name.length <= 100) return { name, prefix };
+  }
+  throw new Error(`Digest archive path is too long for ustar: ${filePath}`);
+}
+
+function writeAscii(target: Uint8Array, offset: number, length: number, value: string): void {
+  const bytes = new TextEncoder().encode(value);
+  target.set(bytes.slice(0, length), offset);
+}
+
+function writeOctal(target: Uint8Array, offset: number, length: number, value: number): void {
+  const text = value.toString(8).padStart(length - 1, '0').slice(-(length - 1));
+  writeAscii(target, offset, length, text);
+}
+
+async function gzip(data: Uint8Array): Promise<Uint8Array> {
+  const Compression = (globalThis as { CompressionStream?: new (format: 'gzip') => TransformStream<Uint8Array, Uint8Array> }).CompressionStream;
+  if (!Compression) throw new Error('CompressionStream is unavailable in this runtime.');
+  const stream = new Blob([arrayBufferFor(data)]).stream().pipeThrough(new Compression('gzip'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+function arrayBufferFor(data: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(data.byteLength);
+  copy.set(data);
+  return copy.buffer;
 }
 
 function resourceSegments(value: string | undefined): string[] {

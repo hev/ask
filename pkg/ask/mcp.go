@@ -7,6 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -16,6 +19,7 @@ type MCPOptions struct {
 	DigestPath string
 	Endpoint   string
 	MaxResults int
+	CacheDir   string
 }
 
 type rpcRequest struct {
@@ -54,7 +58,7 @@ type mcpServer struct {
 
 func ServeMCP(ctx context.Context, options MCPOptions, in io.Reader, out io.Writer) error {
 	if options.DigestPath == "" {
-		options.DigestPath = ".hev-ask/digest.json"
+		options.DigestPath = ".hev-ask"
 	}
 	if options.MaxResults <= 0 {
 		options.MaxResults = 8
@@ -114,6 +118,7 @@ func (server mcpServer) handleRequest(ctx context.Context, request rpcRequest) (
 			"capabilities": map[string]any{
 				"tools": map[string]any{},
 			},
+			"instructions": mcpInstructions(),
 			"serverInfo": map[string]any{
 				"name":    "hev-ask",
 				"version": "0.0.1",
@@ -147,50 +152,11 @@ func (server mcpServer) handleRequest(ctx context.Context, request rpcRequest) (
 func mcpTools() []map[string]any {
 	return []map[string]any{
 		{
-			"name":        "glossary_list",
-			"description": "List glossary terms and aliases from the hev ask digest.",
-			"inputSchema": objectSchema(nil, nil),
-		},
-		{
-			"name":        "glossary_get",
-			"description": "Get one glossary entry by term or alias.",
+			"name":        "fetch_docs",
+			"description": "Materialize the hev ask digest tree to local disk and return its title tree.",
 			"inputSchema": objectSchema(map[string]any{
-				"term": stringSchema("Term or alias to resolve."),
-			}, []string{"term"}),
-		},
-		{
-			"name":        "sections_list",
-			"description": "List section summaries from the digest, optionally filtered by group.",
-			"inputSchema": objectSchema(map[string]any{
-				"group": stringSchema("Optional section group filter."),
+				"force": map[string]any{"type": "boolean", "description": "Rebuild the local cache even when the content hash is unchanged."},
 			}, nil),
-		},
-		{
-			"name":        "section_get",
-			"description": "Get one digest section node by id.",
-			"inputSchema": objectSchema(map[string]any{
-				"id": stringSchema("Section id, such as api/cli#flags."),
-			}, []string{"id"}),
-		},
-		{
-			"name":        "overview",
-			"description": "Return the documentation overview and orientation context.",
-			"inputSchema": objectSchema(nil, nil),
-		},
-		{
-			"name":        "search",
-			"description": "Run local keyword search over the digest, or remote keyword search with --endpoint.",
-			"inputSchema": objectSchema(map[string]any{
-				"query":      stringSchema("Search query."),
-				"maxResults": map[string]any{"type": "integer", "minimum": 1, "description": "Maximum local results."},
-			}, []string{"query"}),
-		},
-		{
-			"name":        "answer",
-			"description": "Stream an agentic answer from a deployed /api/ask endpoint.",
-			"inputSchema": objectSchema(map[string]any{
-				"query": stringSchema("Question to answer."),
-			}, []string{"query"}),
 		},
 	}
 }
@@ -216,104 +182,151 @@ func stringSchema(description string) map[string]any {
 
 func (server mcpServer) callTool(ctx context.Context, name string, arguments json.RawMessage) (mcpToolResult, error) {
 	switch name {
-	case "glossary_list":
-		var args struct{}
-		if err := decodeObject(arguments, &args); err != nil {
-			return mcpToolResult{}, err
-		}
-		terms, err := server.listGlossary(ctx)
-		if err != nil {
-			return mcpToolResult{}, err
-		}
-		payload := map[string]any{"terms": terms}
-		return mcpStructuredResult(payload, formatJSON(payload)), nil
-	case "glossary_get":
+	case "fetch_docs":
 		var args struct {
-			Term string `json:"term"`
+			Force bool `json:"force"`
 		}
 		if err := decodeObject(arguments, &args); err != nil {
 			return mcpToolResult{}, err
 		}
-		if strings.TrimSpace(args.Term) == "" {
-			return mcpToolResult{}, errors.New("glossary_get requires term")
-		}
-		entry, err := server.getGlossaryEntry(ctx, args.Term)
+		payload, err := server.fetchDocs(ctx, args.Force)
 		if err != nil {
 			return mcpToolResult{}, err
 		}
-		return mcpStructuredResult(entry, formatJSON(entry)), nil
-	case "sections_list":
-		var args struct {
-			Group string `json:"group"`
-		}
-		if err := decodeObject(arguments, &args); err != nil {
-			return mcpToolResult{}, err
-		}
-		sections, err := server.listSections(ctx, args.Group)
-		if err != nil {
-			return mcpToolResult{}, err
-		}
-		payload := map[string]any{"sections": sections}
-		return mcpStructuredResult(payload, formatJSON(payload)), nil
-	case "section_get":
-		var args struct {
-			ID string `json:"id"`
-		}
-		if err := decodeObject(arguments, &args); err != nil {
-			return mcpToolResult{}, err
-		}
-		if strings.TrimSpace(args.ID) == "" {
-			return mcpToolResult{}, errors.New("section_get requires id")
-		}
-		node, err := server.getSection(ctx, args.ID)
-		if err != nil {
-			return mcpToolResult{}, err
-		}
-		return mcpStructuredResult(node, formatJSON(node)), nil
-	case "overview":
-		var args struct{}
-		if err := decodeObject(arguments, &args); err != nil {
-			return mcpToolResult{}, err
-		}
-		overview, err := server.overview(ctx)
-		if err != nil {
-			return mcpToolResult{}, err
-		}
-		return mcpStructuredResult(overview, formatJSON(overview)), nil
-	case "search":
-		var args struct {
-			Query      string `json:"query"`
-			MaxResults int    `json:"maxResults"`
-		}
-		if err := decodeObject(arguments, &args); err != nil {
-			return mcpToolResult{}, err
-		}
-		if strings.TrimSpace(args.Query) == "" {
-			return mcpToolResult{}, errors.New("search requires query")
-		}
-		response, err := server.search(ctx, args.Query, args.MaxResults)
-		if err != nil {
-			return mcpToolResult{}, err
-		}
-		return mcpStructuredResult(response, formatJSON(response)), nil
-	case "answer":
-		var args struct {
-			Query string `json:"query"`
-		}
-		if err := decodeObject(arguments, &args); err != nil {
-			return mcpToolResult{}, err
-		}
-		if strings.TrimSpace(args.Query) == "" {
-			return mcpToolResult{}, errors.New("answer requires query")
-		}
-		payload, text, err := server.answer(ctx, args.Query)
-		if err != nil {
-			return mcpToolResult{}, err
-		}
-		return mcpStructuredResult(payload, text), nil
+		return mcpStructuredResult(payload, payload.Tree), nil
 	default:
 		return mcpToolResult{}, fmt.Errorf("unknown tool %q", name)
 	}
+}
+
+type fetchDocsResult struct {
+	Path        string `json:"path"`
+	ContentHash string `json:"contentHash"`
+	Sections    int    `json:"sections"`
+	Tree        string `json:"tree"`
+	UpToDate    bool   `json:"upToDate"`
+}
+
+func (server mcpServer) fetchDocs(ctx context.Context, force bool) (fetchDocsResult, error) {
+	if server.options.Endpoint != "" {
+		return server.fetchRemoteDocs(ctx, force)
+	}
+	digest, err := server.loadDigest(ctx)
+	if err != nil {
+		return fetchDocsResult{}, err
+	}
+	cachePath, err := server.cachePath()
+	if err != nil {
+		return fetchDocsResult{}, err
+	}
+	upToDate := false
+	if !force {
+		if cached, err := LoadDigest(cachePath); err == nil && cached.ContentHash != "" && cached.ContentHash == digest.ContentHash {
+			upToDate = true
+		}
+	}
+	if !upToDate {
+		if err := WriteDigestTree(cachePath, digest); err != nil {
+			return fetchDocsResult{}, err
+		}
+	}
+	return fetchDocsResult{
+		Path:        cachePath,
+		ContentHash: digest.ContentHash,
+		Sections:    len(digest.Nodes),
+		Tree:        RenderDigestTree(digest),
+		UpToDate:    upToDate,
+	}, nil
+}
+
+func (server mcpServer) fetchRemoteDocs(ctx context.Context, force bool) (fetchDocsResult, error) {
+	cachePath, err := server.cachePath()
+	if err != nil {
+		return fetchDocsResult{}, err
+	}
+	client := NewEndpointClient(server.options.Endpoint)
+	remoteHash, hashErr := client.ArchiveContentHash(ctx)
+	if hashErr == nil && !force && strings.TrimSpace(remoteHash) != "" {
+		if cached, err := LoadDigest(cachePath); err == nil && cached.ContentHash == remoteHash {
+			return fetchDocsResult{
+				Path:        cachePath,
+				ContentHash: cached.ContentHash,
+				Sections:    len(cached.Nodes),
+				Tree:        RenderDigestTree(cached),
+				UpToDate:    true,
+			}, nil
+		}
+	}
+	digest, err := client.DownloadArchive(ctx, cachePath)
+	if err != nil {
+		// Older deployed sites may not expose /archive yet. Keep cross-site
+		// hydrate usable by falling back to keyless JSON reads.
+		if hashErr != nil || strings.Contains(err.Error(), "404") {
+			digest, err = client.Digest(ctx)
+			if err != nil {
+				return fetchDocsResult{}, err
+			}
+			if err := WriteDigestTree(cachePath, digest); err != nil {
+				return fetchDocsResult{}, err
+			}
+		} else {
+			return fetchDocsResult{}, err
+		}
+	}
+	return fetchDocsResult{
+		Path:        cachePath,
+		ContentHash: digest.ContentHash,
+		Sections:    len(digest.Nodes),
+		Tree:        RenderDigestTree(digest),
+		UpToDate:    false,
+	}, nil
+}
+
+func (server mcpServer) loadDigest(ctx context.Context) (Digest, error) {
+	if server.options.Endpoint != "" {
+		return NewEndpointClient(server.options.Endpoint).Digest(ctx)
+	}
+	return LoadDigest(server.options.DigestPath)
+}
+
+func (server mcpServer) cachePath() (string, error) {
+	base := server.options.CacheDir
+	if base == "" {
+		cache, err := os.UserCacheDir()
+		if err != nil {
+			return "", err
+		}
+		base = filepath.Join(cache, "hev-ask")
+	}
+	return filepath.Join(base, server.cacheKey()), nil
+}
+
+func (server mcpServer) cacheKey() string {
+	if server.options.Endpoint != "" {
+		parsed, err := url.Parse(server.options.Endpoint)
+		if err == nil && parsed.Host != "" {
+			return sanitizeCacheKey(parsed.Host)
+		}
+		return "endpoint-" + SHA256Hex(server.options.Endpoint)[:12]
+	}
+	abs, err := filepath.Abs(server.options.DigestPath)
+	if err != nil {
+		abs = server.options.DigestPath
+	}
+	return "local-" + SHA256Hex(abs)[:12]
+}
+
+func sanitizeCacheKey(value string) string {
+	replacer := strings.NewReplacer("/", "-", "\\", "-", ":", "-", " ", "-")
+	cleaned := strings.Trim(replacer.Replace(value), "-")
+	if cleaned == "" {
+		return "docs"
+	}
+	return cleaned
+}
+
+func mcpInstructions() string {
+	return "This server gives you a local hev ask digest tree. Call fetch_docs first. Read the returned title tree, then use filesystem tools on the returned path: ls/tree for titles, cat only for relevant section files, grep for specifics, and _glossary/ for aliases. Answer from those files and cite claims with each section file's url plus anchor frontmatter as a deep link. Do not read every file unless the task explicitly requires a full audit."
 }
 
 func (server mcpServer) listGlossary(ctx context.Context) ([]GlossaryEntry, error) {
