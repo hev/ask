@@ -1,6 +1,6 @@
 ---
 title: "CLI"
-description: "The ask CLI reads the committed digest as a directory (tree, ls, head, cat, facts, grep over path keys) and builds, verifies, and serves it for agents and CI."
+description: "The ask CLI reads the committed digest as a directory (tree to map it, cat to read, facts for literals, grep to search over path keys) and builds, verifies, and serves it for agents and CI."
 group: "API"
 order: 3
 ---
@@ -10,10 +10,10 @@ import CodeTabs from "../../../components/docs/CodeTabs.astro";
 
 `@hevmind/ask` ships the `ask` binary. It has two command groups:
 
-- **Read verbs** are the shell over the committed digest tree: map it
-  (`tree`, `ls`), skim a section (`head`), open it (`cat`), pull its grounded
-  literals (`facts`), search it (`grep`) — plus `answer` for a synthesized,
-  cited reply and `mcp` to serve the lot to an agent.
+- **Read verbs** are the shell over the committed digest tree: one for each
+  operation — map it (`tree`), read a node (`cat`), pull its grounded literals
+  (`facts`), search it (`grep`) — plus `answer` for a synthesized, cited reply
+  and `mcp` to serve the lot to an agent.
 - **Producer commands** live under `ask digest`: `build`, `corpus`, `assemble`,
   `verify`, `status`, and `migrate`.
 
@@ -24,21 +24,27 @@ By default, `ask` reads the `.hev-ask/` tree from the current repo. Pass
 path-addressed, mirroring your doc URLs:
 
 ```sh
-ask tree                              # the whole title-tree — every section, no bodies
-ask ls api/                           # titles under one group
-ask head overview/quick-start         # title + one-line summary
-ask cat overview/quick-start          # the full distilled section
+ask tree                              # map the digest — titles only, ~2 levels deep
+ask tree api --depth all             # map one subtree, fully expanded
+ask cat overview/quick-start          # read a section (the full distilled body)
+ask cat _glossary/digest              # read a glossary entry (alias-aware)
+ask cat _meta                         # read the site overview
 ask facts api/endpoint                # verbatim flags / code / ids + sources to cite
 ask grep "read endpoints"             # keyword search, one hit per line
-ask cat _glossary/digest              # a glossary entry
 ask --endpoint https://hevask.com/api/ask answer "what read routes exist?"
 ask mcp
 ```
 
-The four rungs go cheap-to-expensive: `tree`/`ls` return **titles only** and are
-bounded by the number of sections, so they're safe to skim first; `head`, `cat`,
-and `facts` each open a larger slice of one section file. Nothing larger than a
-title is returned by a listing.
+There's one verb per operation, and the digest is a real directory of markdown
+files — so where a shell tool already does the job (`ls`, `head`), use it on the
+tree directly. The verbs add what plain files don't: structured frontmatter,
+fuzzy path resolution, glossary aliases, and the same reads over `--endpoint`.
+
+`ask tree` is the cheap first step — it returns **titles only**, bounded by the
+number of sections, and defaults to two levels deep so a large site stays
+skimmable. Pass a path to scope it and `--depth N` (or `--depth all`) to go
+deeper; directories truncated at the limit report a `(+N)` count of what they
+hide. `cat` and `facts` then open one section file at a time.
 
 `ask answer` uses the deployed endpoint's agentic SSE path, so it requires
 `--endpoint`. For keyless local retrieval, use `ask grep` and `ask cat`.
@@ -152,6 +158,7 @@ size never hits a context limit. The resulting tree has the same shape as
 | `--digest-dir <dir>` | `.hev-ask` | Local digest tree for reads; output dir for producer commands. |
 | `--endpoint <url>` | - | Remote `/api/ask` base URL for read commands and `answer`. |
 | `--json` | automatic for non-TTY in the standalone CLI | Force machine-readable JSON output. |
+| `--depth <n\|all>` | `2` | `tree` only: how many levels to print before collapsing to a `(+N)` count. `all` (or `0`) expands fully. |
 | `--max-results <n>` | `8` | Local `grep` result cap. |
 | `--collection <name>` | `docs` | Collection to read for producer commands. Repeat for multiple. |
 | `--base-path <path>` | `/docs/` | Slug to URL prefix for producer commands. |

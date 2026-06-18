@@ -110,22 +110,23 @@ literal anchor text). Good titles are what make the ladder below worth climbing.
 ## Progressive disclosure as a directory
 
 Because the digest is a real directory, progressive disclosure is just the
-directory's own cost model. An agent already knows `ls` is cheap and `cat`
+directory's own cost model. An agent already knows a listing is cheap and `cat`
 might be large; hev ask leans on that intuition instead of inventing a new one.
-The reads form a **four-rung ladder**, each rung a strictly larger slice of one
+The reads form a **disclosure ladder**, each rung a strictly larger slice of one
 section file:
 
-<Diagram label="the four-rung ladder">{askLadderDiagram}</Diagram>
+<Diagram label="the disclosure ladder">{askLadderDiagram}</Diagram>
 
 Two properties make the ladder real. A **listing reads frontmatter only**, so
-`tree` and `ls` can never leak a body — their output is bounded by the number of
-sections, not the size of the docs, which is what makes them safe to call
-speculatively. And every deeper rung is an **explicit verb**: `head` for the
-summary, `cat` for the body, `facts` for the grounded literals. Nothing larger
-than a title is ever returned by surprise.
+`tree` can never leak a body — its output is bounded by the number of sections,
+not the size of the docs, which is what makes it safe to call speculatively; it
+defaults to a couple of levels deep so even a large site stays skimmable. And
+every deeper rung is an **explicit verb**: `cat` for the body, `facts` for the
+grounded literals. Nothing larger than a title is ever returned by surprise.
 
 A coding agent climbs this with its **own** `tree`/`cat`/`grep` once it has the
-tree on disk (see [MCP](/docs/api/mcp)); the `ask` CLI offers the same verbs for
+tree on disk (see [MCP](/docs/api/mcp)) — the digest is plain markdown, so `ls`
+and `head` work on it directly. The `ask` CLI offers one verb per operation for
 the keyless and remote cases (see the [CLI reference](/docs/api/cli)).
 
 ## Keyword search and the glossary

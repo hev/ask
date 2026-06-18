@@ -49,24 +49,11 @@ func (group CommandGroup) Run(ctx context.Context, args []string, stdin io.Reade
 	commandArgs := rest[1:]
 	switch command {
 	case "tree":
-		if len(commandArgs) != 0 {
-			return fmt.Errorf("tree takes no arguments")
+		path, depth, err := parseTreeArgs(commandArgs)
+		if err != nil {
+			return err
 		}
-		return group.withOptions(options).runTree(ctx, stdout)
-	case "ls":
-		path := ""
-		if len(commandArgs) > 1 {
-			return fmt.Errorf("ls takes at most one path")
-		}
-		if len(commandArgs) == 1 {
-			path = commandArgs[0]
-		}
-		return group.withOptions(options).runLs(ctx, path, stdout)
-	case "head":
-		if len(commandArgs) == 0 {
-			return fmt.Errorf("head requires a path")
-		}
-		return group.withOptions(options).runHead(ctx, strings.Join(commandArgs, " "), stdout)
+		return group.withOptions(options).runTree(ctx, path, depth, stdout)
 	case "cat":
 		if len(commandArgs) == 0 {
 			return fmt.Errorf("cat requires a path")
@@ -80,22 +67,6 @@ func (group CommandGroup) Run(ctx context.Context, args []string, stdin io.Reade
 	case "grep":
 		if len(commandArgs) == 0 {
 			return fmt.Errorf("grep requires a query")
-		}
-		return group.withOptions(options).runGrep(ctx, strings.Join(commandArgs, " "), stdout)
-	case "glossary":
-		return group.withOptions(options).runGlossary(ctx, commandArgs, stdout)
-	case "sections":
-		return group.withOptions(options).runSections(ctx, commandArgs, stdout)
-	case "section":
-		return group.withOptions(options).runSection(ctx, commandArgs, stdout)
-	case "overview":
-		if len(commandArgs) != 0 {
-			return fmt.Errorf("overview takes no arguments")
-		}
-		return group.withOptions(options).runOverview(ctx, stdout)
-	case "search":
-		if len(commandArgs) == 0 {
-			return fmt.Errorf("search requires a query")
 		}
 		return group.withOptions(options).runGrep(ctx, strings.Join(commandArgs, " "), stdout)
 	case "answer":
@@ -125,58 +96,18 @@ func (group CommandGroup) withOptions(options CommandOptions) CommandGroup {
 	return CommandGroup{options: options}
 }
 
-func (group CommandGroup) runTree(ctx context.Context, stdout io.Writer) error {
+func (group CommandGroup) runTree(ctx context.Context, path string, depth int, stdout io.Writer) error {
 	digest, err := group.loadDigest(ctx)
 	if err != nil {
 		return err
 	}
-	payload := map[string]any{"tree": RenderDigestTree(digest), "entries": digestLeafEntries(digest)}
+	rendered, entries, err := RenderDigestTreeDepth(digest, path, depth)
+	if err != nil {
+		return err
+	}
+	payload := map[string]any{"path": cleanDigestPath(path), "depth": depth, "tree": rendered, "entries": entries}
 	return group.writeOutput(stdout, payload, func(w io.Writer) {
-		fmt.Fprintln(w, payload["tree"])
-	})
-}
-
-func (group CommandGroup) runLs(ctx context.Context, path string, stdout io.Writer) error {
-	digest, err := group.loadDigest(ctx)
-	if err != nil {
-		return err
-	}
-	entries := ListDigestPath(digest, path)
-	return group.writeOutput(stdout, map[string]any{"entries": entries}, func(w io.Writer) {
-		for _, entry := range entries {
-			name := entry.Path
-			if prefix := cleanDigestPath(path); prefix != "" {
-				name = strings.TrimPrefix(strings.TrimPrefix(entry.Path, prefix), "/")
-			}
-			if entry.Kind == "dir" && !strings.HasSuffix(name, "/") {
-				name += "/"
-			}
-			if entry.Title != "" && entry.Kind != "dir" {
-				fmt.Fprintf(w, "%s\t%s\n", name, entry.Title)
-			} else {
-				fmt.Fprintln(w, name)
-			}
-		}
-	})
-}
-
-func (group CommandGroup) runHead(ctx context.Context, path string, stdout io.Writer) error {
-	digest, err := group.loadDigest(ctx)
-	if err != nil {
-		return err
-	}
-	head, ok := HeadDigestPath(digest, path)
-	if !ok {
-		return fmt.Errorf("no digest path matched %q", path)
-	}
-	return group.writeOutput(stdout, head, func(w io.Writer) {
-		fmt.Fprintln(w, head.Title)
-		if head.URL != "" {
-			fmt.Fprintln(w, head.URL)
-		}
-		if strings.TrimSpace(head.Summary) != "" {
-			fmt.Fprintf(w, "\n%s\n", head.Summary)
-		}
+		fmt.Fprintln(w, rendered)
 	})
 }
 
@@ -244,110 +175,6 @@ func (group CommandGroup) runGrep(ctx context.Context, query string, stdout io.W
 	})
 }
 
-func (group CommandGroup) runGlossary(ctx context.Context, args []string, stdout io.Writer) error {
-	subcommand := "list"
-	if len(args) > 0 {
-		subcommand = args[0]
-		args = args[1:]
-	}
-	switch subcommand {
-	case "list":
-		if len(args) != 0 {
-			return fmt.Errorf("glossary list takes no arguments")
-		}
-		terms, err := group.listGlossary(ctx)
-		if err != nil {
-			return err
-		}
-		return group.writeOutput(stdout, map[string]any{"terms": terms}, func(w io.Writer) {
-			for _, term := range terms {
-				fmt.Fprintf(w, "%s\n", term.Term)
-			}
-		})
-	case "get":
-		if len(args) == 0 {
-			return fmt.Errorf("glossary get requires a term")
-		}
-		entry, err := group.getGlossaryEntry(ctx, strings.Join(args, " "))
-		if err != nil {
-			return err
-		}
-		return group.writeOutput(stdout, entry, func(w io.Writer) {
-			fmt.Fprintf(w, "%s\n%s\n", entry.Term, entry.Definition)
-		})
-	default:
-		return fmt.Errorf("unknown glossary command %q", subcommand)
-	}
-}
-
-func (group CommandGroup) runSections(ctx context.Context, args []string, stdout io.Writer) error {
-	subcommand := "list"
-	if len(args) > 0 && !strings.HasPrefix(args[0], "--") {
-		subcommand = args[0]
-		args = args[1:]
-	}
-	if subcommand != "list" {
-		return fmt.Errorf("unknown sections command %q", subcommand)
-	}
-	groupName, rest, err := parseCommandValueFlag(args, "--group")
-	if err != nil {
-		return err
-	}
-	if len(rest) != 0 {
-		return fmt.Errorf("sections list got unexpected arguments: %s", strings.Join(rest, " "))
-	}
-	sections, err := group.listSections(ctx, groupName)
-	if err != nil {
-		return err
-	}
-	return group.writeOutput(stdout, map[string]any{"sections": sections}, func(w io.Writer) {
-		for _, section := range sections {
-			fmt.Fprintf(w, "%s\t%s\t%s\n", section.ID, section.Title, section.URL)
-		}
-	})
-}
-
-func (group CommandGroup) runSection(ctx context.Context, args []string, stdout io.Writer) error {
-	if len(args) == 0 || args[0] != "get" {
-		return fmt.Errorf("usage: section get <id>")
-	}
-	if len(args) < 2 {
-		return fmt.Errorf("section get requires an id")
-	}
-	node, err := group.getSection(ctx, strings.Join(args[1:], " "))
-	if err != nil {
-		return err
-	}
-	return group.writeOutput(stdout, node, func(w io.Writer) {
-		fmt.Fprintf(w, "%s\n%s\n", node.Title, node.Summary)
-	})
-}
-
-func (group CommandGroup) runOverview(ctx context.Context, stdout io.Writer) error {
-	overview, err := group.overview(ctx)
-	if err != nil {
-		return err
-	}
-	return group.writeOutput(stdout, overview, func(w io.Writer) {
-		if strings.TrimSpace(overview.Context) != "" {
-			fmt.Fprintf(w, "%s\n\n", overview.Context)
-		}
-		fmt.Fprintln(w, overview.Overview)
-	})
-}
-
-func (group CommandGroup) runSearch(ctx context.Context, query string, stdout io.Writer) error {
-	response, err := group.search(ctx, query)
-	if err != nil {
-		return err
-	}
-	return group.writeOutput(stdout, response, func(w io.Writer) {
-		for _, result := range response.Results {
-			fmt.Fprintf(w, "%s\n%s\n%s\n\n", result.Title, result.URL, result.Snippet)
-		}
-	})
-}
-
 func (group CommandGroup) runAnswer(ctx context.Context, query string, stdout io.Writer) error {
 	if group.options.Endpoint == "" {
 		return errors.New("answer requires --endpoint for the remote SSE answer path; without --endpoint, use search for keyless local retrieval")
@@ -383,69 +210,6 @@ func (group CommandGroup) runAnswer(ctx context.Context, query string, stdout io
 		}
 		return nil
 	})
-}
-
-func (group CommandGroup) listGlossary(ctx context.Context) ([]GlossaryEntry, error) {
-	if group.options.Endpoint != "" {
-		return NewEndpointClient(group.options.Endpoint).ListGlossary(ctx)
-	}
-	digest, err := group.loadDigest(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return ListGlossary(digest), nil
-}
-
-func (group CommandGroup) getGlossaryEntry(ctx context.Context, term string) (GlossaryEntry, error) {
-	if group.options.Endpoint != "" {
-		return NewEndpointClient(group.options.Endpoint).GetGlossaryEntry(ctx, term)
-	}
-	digest, err := group.loadDigest(ctx)
-	if err != nil {
-		return GlossaryEntry{}, err
-	}
-	entry, ok := GetGlossaryEntry(digest, term)
-	if !ok {
-		return GlossaryEntry{}, fmt.Errorf("no glossary entry matched %q", term)
-	}
-	return entry, nil
-}
-
-func (group CommandGroup) listSections(ctx context.Context, groupName string) ([]SectionSummary, error) {
-	if group.options.Endpoint != "" {
-		return NewEndpointClient(group.options.Endpoint).ListSections(ctx, groupName)
-	}
-	digest, err := group.loadDigest(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return ListSectionSummaries(digest, groupName), nil
-}
-
-func (group CommandGroup) getSection(ctx context.Context, id string) (DigestNode, error) {
-	if group.options.Endpoint != "" {
-		return NewEndpointClient(group.options.Endpoint).GetSection(ctx, id)
-	}
-	digest, err := group.loadDigest(ctx)
-	if err != nil {
-		return DigestNode{}, err
-	}
-	node, ok := GetSection(digest, id)
-	if !ok {
-		return DigestNode{}, fmt.Errorf("no section matched %q", id)
-	}
-	return node, nil
-}
-
-func (group CommandGroup) overview(ctx context.Context) (Overview, error) {
-	if group.options.Endpoint != "" {
-		return NewEndpointClient(group.options.Endpoint).Overview(ctx)
-	}
-	digest, err := group.loadDigest(ctx)
-	if err != nil {
-		return Overview{}, err
-	}
-	return GetOverview(digest), nil
 }
 
 func (group CommandGroup) search(ctx context.Context, query string) (KeywordResponse, error) {
@@ -520,21 +284,39 @@ func parseCommandFlags(defaults CommandOptions, args []string) (CommandOptions, 
 	return options, rest, nil
 }
 
-func parseCommandValueFlag(args []string, name string) (string, []string, error) {
-	var value string
-	var rest []string
+// parseTreeArgs reads the optional path argument and --depth flag for `tree`.
+// Depth defaults to 2 (a couple of levels); "all" or "0" means unlimited.
+func parseTreeArgs(args []string) (string, int, error) {
+	depth := 2
+	path := ""
+	pathSet := false
 	for i := 0; i < len(args); i++ {
-		if args[i] != name {
-			rest = append(rest, args[i])
-			continue
+		switch {
+		case args[i] == "--depth":
+			if i+1 >= len(args) {
+				return "", 0, fmt.Errorf("--depth requires a value")
+			}
+			value := args[i+1]
+			i++
+			if value == "all" || value == "0" {
+				depth = 0
+				continue
+			}
+			var n int
+			if _, err := fmt.Sscanf(value, "%d", &n); err != nil || n < 0 {
+				return "", 0, fmt.Errorf(`--depth must be a non-negative integer or "all"`)
+			}
+			depth = n
+		case strings.HasPrefix(args[i], "--"):
+			return "", 0, fmt.Errorf("unknown tree flag %q", args[i])
+		case pathSet:
+			return "", 0, fmt.Errorf("tree takes at most one path")
+		default:
+			path = args[i]
+			pathSet = true
 		}
-		if i+1 >= len(args) {
-			return "", nil, fmt.Errorf("%s requires a value", name)
-		}
-		value = args[i+1]
-		i++
 	}
-	return value, rest, nil
+	return path, depth, nil
 }
 
 func writeCommandUsage(w io.Writer) {
@@ -542,20 +324,12 @@ func writeCommandUsage(w io.Writer) {
   ask [--digest-dir .hev-ask] [--endpoint URL] [--json] <command>
 
 Commands:
-  tree
-  ls [path]
-  head <path>
-  cat <path>
-  facts <path>
-  grep <query>
-  glossary list
-  glossary get <term>
-  sections list [--group GROUP]
-  section get <id>
-  overview
-  search <query>
-  answer <query>
-  mcp`)
+  tree [path] [--depth N|all]   map the digest (default: 2 levels deep)
+  cat <path>                    read a section, _glossary/<term>, or _meta (overview)
+  facts <path>                  grounded literals + sources for a section
+  grep <query>                  keyword search over the digest
+  answer <query>                synthesized, cited reply (requires --endpoint)
+  mcp                           serve the digest to an agent over stdio`)
 }
 
 func writeGlossaryEntryHuman(w io.Writer, entry GlossaryEntry) {

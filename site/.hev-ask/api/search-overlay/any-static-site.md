@@ -6,11 +6,11 @@ group: "API"
 order: 43
 url: "/docs/api/search-overlay#any-static-site"
 anchor: "any-static-site"
-terms: ["static","site","plain","html","sites","need","framework","bundle","command","build","step","deploy","output","beside","drop","script","template","endpoint","attribute","only","agentic","answers","wanted","digest","there","satisfy","release","alongside","want"]
+terms: ["static","site","framework","satisfy","bundling","command","build","release","step","deploy","output","alongside","html","drop","script","endpoint","attribute","want","agentic","answers","digest","bundle","there","template"]
 hash: "5bc9f3e49238a7029f2917dba220035cdbde4b3141ca78013be0cb6e04d31301"
 mode: "source-primary"
 facts: [{"kind":"code","literal":"ask digest bundle","chunkId":"api/search-overlay#any-static-site"},{"kind":"code","literal":"\u003cscript\u003e","chunkId":"api/search-overlay#any-static-site"}]
 sources: [{"chunkId":"api/search-overlay#any-static-site","url":"/docs/api/search-overlay#any-static-site","anchor":"any-static-site"}]
 ---
 
-Plain HTML sites need no framework: run the bundle command as a build step, deploy its output beside the HTML, drop the script tag into the template, and add the endpoint attribute only when agentic answers are wanted.
+On any site with no framework to satisfy, run the bundling command as a build or release step, deploy its output alongside your HTML, drop in the script tag, and add the endpoint attribute when you want agentic answers.

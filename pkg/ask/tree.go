@@ -568,6 +568,110 @@ func RenderDigestTree(digest Digest) string {
 	return strings.Join(lines, "\n")
 }
 
+// TreeEntry is a node in a depth-limited digest tree view. Directories cut off
+// at the depth limit carry ChildCount: the number of leaf descendants hidden
+// below the cut.
+type TreeEntry struct {
+	Path       string `json:"path"`
+	Kind       string `json:"kind"`
+	Title      string `json:"title,omitempty"`
+	URL        string `json:"url,omitempty"`
+	ChildCount int    `json:"childCount,omitempty"`
+}
+
+type treeNode struct {
+	name     string
+	path     string
+	entry    *DigestEntry
+	children []*treeNode
+	byName   map[string]*treeNode
+}
+
+func buildDigestTreeNodes(digest Digest) *treeNode {
+	root := &treeNode{byName: map[string]*treeNode{}}
+	for _, entry := range digestLeafEntries(digest) {
+		entry := entry
+		segments := strings.Split(entry.Path, "/")
+		node := root
+		for i, segment := range segments {
+			child, ok := node.byName[segment]
+			if !ok {
+				child = &treeNode{name: segment, path: strings.Join(segments[:i+1], "/"), byName: map[string]*treeNode{}}
+				node.byName[segment] = child
+				node.children = append(node.children, child)
+			}
+			node = child
+		}
+		node.entry = &entry
+	}
+	return root
+}
+
+func (node *treeNode) leafDescendants() int {
+	if len(node.children) == 0 {
+		return 1
+	}
+	total := 0
+	for _, child := range node.children {
+		total += child.leafDescendants()
+	}
+	return total
+}
+
+// RenderDigestTreeDepth renders the digest tree under scope, limited to maxDepth
+// levels relative to the scope (maxDepth <= 0 means unlimited). It returns the
+// ASCII render and the entries visible at that depth; directories truncated at
+// the limit report how many leaves they hide via ChildCount.
+func RenderDigestTreeDepth(digest Digest, scope string, maxDepth int) (string, []TreeEntry, error) {
+	start := buildDigestTreeNodes(digest)
+	if cleaned := cleanDigestPath(scope); cleaned != "" {
+		for _, segment := range strings.Split(cleaned, "/") {
+			next, ok := start.byName[segment]
+			if !ok {
+				return "", nil, fmt.Errorf("no digest path matched %q", scope)
+			}
+			start = next
+		}
+	}
+
+	var lines []string
+	visible := []TreeEntry{}
+	var walk func(node *treeNode, level int)
+	walk = func(node *treeNode, level int) {
+		children := append([]*treeNode(nil), node.children...)
+		sort.Slice(children, func(i, j int) bool { return children[i].path < children[j].path })
+		for _, child := range children {
+			isDir := len(child.children) > 0
+			entry := TreeEntry{Path: child.path, Kind: "dir"}
+			if child.entry != nil {
+				entry.Kind = child.entry.Kind
+				entry.Title = child.entry.Title
+				entry.URL = child.entry.URL
+			}
+			name := child.name
+			if isDir {
+				name += "/"
+			}
+			line := strings.Repeat("  ", level-1) + name
+			if entry.Title != "" {
+				line += "  " + entry.Title
+			}
+			atLimit := maxDepth > 0 && level >= maxDepth
+			if isDir && atLimit {
+				entry.ChildCount = child.leafDescendants()
+				line += fmt.Sprintf("  (+%d)", entry.ChildCount)
+			}
+			lines = append(lines, line)
+			visible = append(visible, entry)
+			if isDir && !atLimit {
+				walk(child, level+1)
+			}
+		}
+	}
+	walk(start, 1)
+	return strings.Join(lines, "\n"), visible, nil
+}
+
 func HeadDigestPath(digest Digest, path string) (DigestHead, bool) {
 	key := cleanDigestPath(path)
 	if key == "" || key == "_meta" {

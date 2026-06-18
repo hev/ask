@@ -1,6 +1,6 @@
 ---
 term: "anchor"
-aliases: ["deep link","slug","heading anchor"]
+aliases: ["deep link","slug","heading id"]
 ---
 
-The github-slugger heading id appended to a section URL so results land on the exact heading; ask digest verify gates anchors against the rendered HTML in CI.
+The github-slugger heading slug that makes a section link land on the exact heading.

@@ -13,4 +13,4 @@ facts: [{"kind":"code","literal":"Concepts › The agentic loop","chunkId":"api/
 sources: [{"chunkId":"api/search-overlay#keyword-results-and-deep-links","url":"/docs/api/search-overlay#keyword-results-and-deep-links","anchor":"keyword-results-and-deep-links"}]
 ---
 
-Each keyword result row shows the document title, an optional heading breadcrumb, and a one-line snippet; the row links to the chunk's url, which already carries the anchor, so clicking lands on the exact heading.
+Each keyword result row shows the document title, an optional heading breadcrumb, and a one-line snippet, and the row links to the chunk's URL which already carries the anchor, so clicking lands on the exact heading.

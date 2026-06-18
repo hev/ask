@@ -45,10 +45,10 @@ func writeTestDigest(t *testing.T) string {
 	return path
 }
 
-func TestRunGlossaryGetJSON(t *testing.T) {
+func TestRunCatGlossaryAliasJSON(t *testing.T) {
 	path := writeTestDigest(t)
 	var stdout, stderr bytes.Buffer
-	err := run(context.Background(), []string{"--digest-path", path, "--json", "glossary", "get", "kg"}, &stdout, &stderr)
+	err := run(context.Background(), []string{"--digest-path", path, "--json", "cat", "_glossary/kg"}, &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("run failed: %v\nstderr: %s", err, stderr.String())
 	}
@@ -57,22 +57,22 @@ func TestRunGlossaryGetJSON(t *testing.T) {
 	}
 }
 
-func TestRunSectionsListGroupJSON(t *testing.T) {
+func TestRunTreeScopedJSON(t *testing.T) {
 	path := writeTestDigest(t)
 	var stdout, stderr bytes.Buffer
-	err := run(context.Background(), []string{"--digest-path", path, "--json", "sections", "list", "--group", "api"}, &stdout, &stderr)
+	err := run(context.Background(), []string{"--digest-path", path, "--json", "tree", "api"}, &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("run failed: %v\nstderr: %s", err, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), `"id": "api/cli#flags"`) {
+	if !strings.Contains(stdout.String(), `"path": "api/cli/flags"`) {
 		t.Fatalf("unexpected output: %s", stdout.String())
 	}
 }
 
-func TestRunSearchJSON(t *testing.T) {
+func TestRunGrepJSON(t *testing.T) {
 	path := writeTestDigest(t)
 	var stdout, stderr bytes.Buffer
-	err := run(context.Background(), []string{"--digest-path", path, "--json", "search", "kg", "path"}, &stdout, &stderr)
+	err := run(context.Background(), []string{"--digest-path", path, "--json", "grep", "kg", "path"}, &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("run failed: %v\nstderr: %s", err, stderr.String())
 	}
@@ -84,7 +84,7 @@ func TestRunSearchJSON(t *testing.T) {
 func TestRunTreeCatFacts(t *testing.T) {
 	path := writeTestDigest(t)
 	var stdout, stderr bytes.Buffer
-	if err := run(context.Background(), []string{"--digest-dir", path, "tree"}, &stdout, &stderr); err != nil {
+	if err := run(context.Background(), []string{"--digest-dir", path, "tree", "--depth", "all"}, &stdout, &stderr); err != nil {
 		t.Fatalf("tree failed: %v\nstderr: %s", err, stderr.String())
 	}
 	if !strings.Contains(stdout.String(), "api/cli/flags") {

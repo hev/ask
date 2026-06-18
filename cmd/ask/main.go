@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -51,7 +50,7 @@ func run(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer)
 	rest := commandArgs[1:]
 
 	switch command {
-	case "tree", "ls", "head", "cat", "facts", "grep", "glossary", "sections", "section", "overview", "search", "answer", "mcp":
+	case "tree", "cat", "facts", "grep", "answer", "mcp":
 		return askpkg.NewCommandGroup(askpkg.CommandOptions{
 			DigestDir:  opts.digestPath,
 			Endpoint:   opts.endpoint,
@@ -295,186 +294,6 @@ func runDigest(_ context.Context, opts options, args []string, stdout io.Writer)
 	}
 }
 
-func runGlossary(ctx context.Context, opts options, args []string, stdout io.Writer, jsonOut bool) error {
-	subcommand := "list"
-	if len(args) > 0 {
-		subcommand = args[0]
-		args = args[1:]
-	}
-	switch subcommand {
-	case "list":
-		if len(args) != 0 {
-			return fmt.Errorf("glossary list takes no arguments")
-		}
-		if opts.endpoint != "" {
-			terms, err := askpkg.NewEndpointClient(opts.endpoint).ListGlossary(ctx)
-			if err != nil {
-				return err
-			}
-			return writeOutput(stdout, jsonOut, map[string]any{"terms": terms}, func(w io.Writer) {
-				writeGlossaryList(w, terms)
-			})
-		}
-		digest, err := askpkg.LoadDigest(opts.digestPath)
-		if err != nil {
-			return err
-		}
-		terms := askpkg.ListGlossary(digest)
-		return writeOutput(stdout, jsonOut, map[string]any{"terms": terms}, func(w io.Writer) {
-			writeGlossaryList(w, terms)
-		})
-	case "get":
-		if len(args) == 0 {
-			return fmt.Errorf("glossary get requires a term")
-		}
-		term := strings.Join(args, " ")
-		if opts.endpoint != "" {
-			entry, err := askpkg.NewEndpointClient(opts.endpoint).GetGlossaryEntry(ctx, term)
-			if err != nil {
-				return err
-			}
-			return writeOutput(stdout, jsonOut, entry, func(w io.Writer) { writeGlossaryEntry(w, entry) })
-		}
-		digest, err := askpkg.LoadDigest(opts.digestPath)
-		if err != nil {
-			return err
-		}
-		entry, ok := askpkg.GetGlossaryEntry(digest, term)
-		if !ok {
-			return fmt.Errorf("no glossary entry matched %q", term)
-		}
-		return writeOutput(stdout, jsonOut, entry, func(w io.Writer) { writeGlossaryEntry(w, entry) })
-	default:
-		return fmt.Errorf("unknown glossary command %q", subcommand)
-	}
-}
-
-func runSections(ctx context.Context, opts options, args []string, stdout io.Writer, jsonOut bool) error {
-	subcommand := "list"
-	if len(args) > 0 && !strings.HasPrefix(args[0], "--") {
-		subcommand = args[0]
-		args = args[1:]
-	}
-	if subcommand != "list" {
-		return fmt.Errorf("unknown sections command %q", subcommand)
-	}
-	group, rest, err := parseValueFlag(args, "--group")
-	if err != nil {
-		return err
-	}
-	if len(rest) != 0 {
-		return fmt.Errorf("sections list got unexpected arguments: %s", strings.Join(rest, " "))
-	}
-	if opts.endpoint != "" {
-		sections, err := askpkg.NewEndpointClient(opts.endpoint).ListSections(ctx, group)
-		if err != nil {
-			return err
-		}
-		return writeOutput(stdout, jsonOut, map[string]any{"sections": sections}, func(w io.Writer) {
-			writeSections(w, sections)
-		})
-	}
-	digest, err := askpkg.LoadDigest(opts.digestPath)
-	if err != nil {
-		return err
-	}
-	sections := askpkg.ListSectionSummaries(digest, group)
-	return writeOutput(stdout, jsonOut, map[string]any{"sections": sections}, func(w io.Writer) {
-		writeSections(w, sections)
-	})
-}
-
-func runSection(ctx context.Context, opts options, args []string, stdout io.Writer, jsonOut bool) error {
-	if len(args) == 0 || args[0] != "get" {
-		return fmt.Errorf("usage: ask section get <id>")
-	}
-	if len(args) < 2 {
-		return fmt.Errorf("section get requires an id")
-	}
-	id := strings.Join(args[1:], " ")
-	if opts.endpoint != "" {
-		node, err := askpkg.NewEndpointClient(opts.endpoint).GetSection(ctx, id)
-		if err != nil {
-			return err
-		}
-		return writeOutput(stdout, jsonOut, node, func(w io.Writer) { writeSection(w, node) })
-	}
-	digest, err := askpkg.LoadDigest(opts.digestPath)
-	if err != nil {
-		return err
-	}
-	node, ok := askpkg.GetSection(digest, id)
-	if !ok {
-		return fmt.Errorf("no section matched %q", id)
-	}
-	return writeOutput(stdout, jsonOut, node, func(w io.Writer) { writeSection(w, node) })
-}
-
-func runOverview(ctx context.Context, opts options, stdout io.Writer, jsonOut bool) error {
-	if opts.endpoint != "" {
-		overview, err := askpkg.NewEndpointClient(opts.endpoint).Overview(ctx)
-		if err != nil {
-			return err
-		}
-		return writeOutput(stdout, jsonOut, overview, func(w io.Writer) { writeOverview(w, overview) })
-	}
-	digest, err := askpkg.LoadDigest(opts.digestPath)
-	if err != nil {
-		return err
-	}
-	overview := askpkg.GetOverview(digest)
-	return writeOutput(stdout, jsonOut, overview, func(w io.Writer) { writeOverview(w, overview) })
-}
-
-func runSearch(ctx context.Context, opts options, query string, stdout io.Writer, jsonOut bool) error {
-	if opts.endpoint != "" {
-		response, err := askpkg.NewEndpointClient(opts.endpoint).Search(ctx, query)
-		if err != nil {
-			return err
-		}
-		return writeOutput(stdout, jsonOut, response, func(w io.Writer) { writeSearchResults(w, response) })
-	}
-	digest, err := askpkg.LoadDigest(opts.digestPath)
-	if err != nil {
-		return err
-	}
-	response := askpkg.SearchDigest(digest, query, askpkg.SearchOptions{MaxResults: opts.maxResults})
-	return writeOutput(stdout, jsonOut, response, func(w io.Writer) { writeSearchResults(w, response) })
-}
-
-func runAnswer(ctx context.Context, opts options, query string, stdout io.Writer, jsonOut bool) error {
-	if opts.endpoint == "" {
-		return errors.New("answer requires --endpoint for the remote SSE answer path; without --endpoint, use search for keyless local retrieval")
-	}
-	encoder := json.NewEncoder(stdout)
-	return askpkg.NewEndpointClient(opts.endpoint).StreamAnswer(ctx, query, func(event askpkg.AnswerEvent) error {
-		if jsonOut {
-			return encoder.Encode(event)
-		}
-		switch event.Event {
-		case "token":
-			var payload struct {
-				Text string `json:"text"`
-			}
-			if err := json.Unmarshal(event.Data, &payload); err != nil {
-				return err
-			}
-			_, err := io.WriteString(stdout, payload.Text)
-			return err
-		case "keyword":
-			var response askpkg.KeywordResponse
-			if err := json.Unmarshal(event.Data, &response); err != nil {
-				return err
-			}
-			writeSearchResults(stdout, response)
-		case "done":
-			_, err := io.WriteString(stdout, "\n")
-			return err
-		}
-		return nil
-	})
-}
-
 func parseGlobalFlags(args []string) (options, []string, error) {
 	opts := options{digestPath: ".hev-ask", maxResults: 8, basePath: "/docs/", chunkHeadingDepth: 3}
 	var rest []string
@@ -691,81 +510,6 @@ func parseValueFlag(args []string, name string) (string, []string, error) {
 	return value, rest, nil
 }
 
-func writeOutput(stdout io.Writer, jsonOut bool, value any, human func(io.Writer)) error {
-	if !jsonOut {
-		human(stdout)
-		return nil
-	}
-	encoder := json.NewEncoder(stdout)
-	encoder.SetIndent("", "  ")
-	return encoder.Encode(value)
-}
-
-func writeGlossaryList(w io.Writer, terms []askpkg.GlossaryEntry) {
-	for _, term := range terms {
-		fmt.Fprintf(w, "%s", term.Term)
-		if len(term.Aliases) > 0 {
-			fmt.Fprintf(w, " (%s)", strings.Join(term.Aliases, ", "))
-		}
-		fmt.Fprintf(w, "\n  %s\n", term.Definition)
-	}
-}
-
-func writeGlossaryEntry(w io.Writer, entry askpkg.GlossaryEntry) {
-	fmt.Fprintf(w, "%s\n", entry.Term)
-	if len(entry.Aliases) > 0 {
-		fmt.Fprintf(w, "Aliases: %s\n", strings.Join(entry.Aliases, ", "))
-	}
-	fmt.Fprintf(w, "%s\n", entry.Definition)
-}
-
-func writeSections(w io.Writer, sections []askpkg.SectionSummary) {
-	for _, section := range sections {
-		label := section.Title
-		if section.Heading != nil && *section.Heading != "" {
-			label += " > " + *section.Heading
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n", section.ID, label, section.URL)
-	}
-}
-
-func writeSection(w io.Writer, node askpkg.DigestNode) {
-	fmt.Fprintf(w, "%s\n", node.Title)
-	if node.Heading != nil && *node.Heading != "" {
-		fmt.Fprintf(w, "Heading: %s\n", *node.Heading)
-	}
-	if node.Group != nil && *node.Group != "" {
-		fmt.Fprintf(w, "Group: %s\n", *node.Group)
-	}
-	fmt.Fprintf(w, "URL: %s\n\n%s\n", node.URL, node.Summary)
-	if len(node.Facts) > 0 {
-		fmt.Fprintln(w, "\nFacts:")
-		for _, fact := range node.Facts {
-			fmt.Fprintf(w, "- %s\n", fact.Literal)
-		}
-	}
-}
-
-func writeOverview(w io.Writer, overview askpkg.Overview) {
-	if strings.TrimSpace(overview.Context) != "" {
-		fmt.Fprintf(w, "%s\n\n", overview.Context)
-	}
-	fmt.Fprintln(w, overview.Overview)
-}
-
-func writeSearchResults(w io.Writer, response askpkg.KeywordResponse) {
-	if response.Warning != "" {
-		fmt.Fprintf(w, "Warning: %s\n\n", response.Warning)
-	}
-	for _, result := range response.Results {
-		label := result.Title
-		if result.Heading != nil && *result.Heading != "" {
-			label += " > " + *result.Heading
-		}
-		fmt.Fprintf(w, "%s\n%s\n%s\n\n", label, result.URL, result.Snippet)
-	}
-}
-
 func writeVerifyResult(w io.Writer, result askpkg.VerifyResult, strict bool) error {
 	failed := false
 	for _, treeErr := range result.TreeErrors {
@@ -816,27 +560,21 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, `Usage:
   ask [--digest-dir .hev-ask] [--endpoint URL] [--json] <command>
 
-Commands:
-  tree
-  ls [path]
-  head <path>
-  cat <path>
-  facts <path>
-  grep <query>
+Read the digest:
+  tree [path] [--depth N|all]   map the digest (default: 2 levels deep)
+  cat <path>                    read a section, _glossary/<term>, or _meta (overview)
+  facts <path>                  grounded literals + sources for a section
+  grep <query>                  keyword search over the digest
+  answer <query>                synthesized, cited reply (requires --endpoint)
+  mcp                           serve the digest to an agent over stdio
+
+Produce the digest:
   digest build [--digest-model model] [--provider anthropic|openai|openrouter] [--provider-url url]
   digest corpus [--out path | --shards-dir dir [--shard-bytes n]]
   digest assemble [--input path | --input-dir dir]
   digest verify [--skip-build] [--strict]
   digest status [--shards-dir dir]
-  digest migrate
-  glossary list
-  glossary get <term>
-  sections list [--group GROUP]
-  section get <id>
-  overview
-  search <query>
-  answer <query>          requires --endpoint in this implementation
-  mcp                     run the MCP stdio server`)
+  digest migrate`)
 }
 
 func isTerminal(file *os.File) bool {

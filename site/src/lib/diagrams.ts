@@ -23,13 +23,10 @@ export const askMapDiagram = String.raw`  ask digest build
 // Progressive disclosure expressed as a directory: four rungs, each a larger slice of one file.
 export const askLadderDiagram = String.raw`  progressive disclosure as a directory — each verb a larger slice of one section
 
-  tree · ls      ▸  titles only, the whole map          ·  cheap, safe to skim first
-       │
+  tree [--depth] ▸  titles only, the whole map          ·  cheap, safe to skim first
+       │              (it's a directory — real ls / head work too)
        ▼
-  head <path>    ▸  title + one-line summary            ·  bounded, the decision rung
-       │
-       ▼
-  cat <path>     ▸  the full distilled section body     ·  opt-in
+  cat <path>     ▸  the full distilled section body     ·  opt-in, one section at a time
        │
        ▼
   facts <path>   ▸  verbatim flags / code / identifiers ·  grounded literals + url#anchor

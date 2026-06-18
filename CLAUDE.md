@@ -95,8 +95,11 @@ docs are also the search corpus, so doc edits are product edits.
   `hev-ask:mode`.
 - `@hevmind/ask/endpoint` — `POST /api/ask`: keyword mode returns JSON, agentic
   mode streams SSE (`text/event-stream`). Contract in `api/endpoint.mdx`.
-- `ask` bin — read verbs (`tree`, `ls`, `head`, `cat`, `facts`, `grep`),
-  `mcp`, and `digest build` / `digest verify`. Flags in `api/cli.mdx`.
+- `ask` bin — read verbs (`tree` [path] [--depth], `cat`, `facts`, `grep`),
+  `answer`, `mcp`, and `digest build` / `digest verify`. One verb per operation:
+  `tree` maps (absorbs the old `ls`/`sections`), `cat` reads (absorbs
+  `head`/`section`/`overview`/glossary `get`), `grep` searches (the old `search`
+  was an alias). Flags in `api/cli.mdx`.
 - Virtual modules `virtual:hev-ask/config` and `virtual:hev-ask/digest`.
 
 When any of these change, update the matching `site/src/content/docs/api/*.mdx`

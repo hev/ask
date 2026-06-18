@@ -9,12 +9,12 @@ import (
 	"testing"
 )
 
-func TestCommandGroupRunSearchJSON(t *testing.T) {
+func TestCommandGroupRunGrepJSON(t *testing.T) {
 	path := writeCommandTestGraph(t)
 	group := NewCommandGroup(CommandOptions{})
 
 	var stdout, stderr bytes.Buffer
-	err := group.Run(context.Background(), []string{"--digest-path", path, "--json", "--max-results", "1", "search", "kg", "path"}, strings.NewReader(""), &stdout, &stderr)
+	err := group.Run(context.Background(), []string{"--digest-path", path, "--json", "--max-results", "1", "grep", "kg", "path"}, strings.NewReader(""), &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("run failed: %v\nstderr: %s", err, stderr.String())
 	}
@@ -24,16 +24,18 @@ func TestCommandGroupRunSearchJSON(t *testing.T) {
 		t.Fatalf("decode output %s: %v", stdout.String(), err)
 	}
 	if len(response.Results) != 1 || response.Results[0].URL != "/docs/api/cli#flags" {
-		t.Fatalf("unexpected search output: %#v", response)
+		t.Fatalf("unexpected grep output: %#v", response)
 	}
 }
 
-func TestCommandGroupRunGlossaryAlias(t *testing.T) {
+// Glossary entries are reached through cat on a _glossary/ path; the lookup is
+// alias-aware, so "kg" resolves to its canonical term.
+func TestCommandGroupCatGlossaryAlias(t *testing.T) {
 	path := writeCommandTestGraph(t)
 	group := NewCommandGroup(CommandOptions{DigestPath: path, JSONOutput: true})
 
 	var stdout, stderr bytes.Buffer
-	err := group.Run(context.Background(), []string{"glossary", "get", "kg"}, strings.NewReader(""), &stdout, &stderr)
+	err := group.Run(context.Background(), []string{"cat", "_glossary/kg"}, strings.NewReader(""), &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("run failed: %v\nstderr: %s", err, stderr.String())
 	}
@@ -46,12 +48,26 @@ func TestCommandGroupRunTreeCatAndFacts(t *testing.T) {
 	path := writeCommandTestGraph(t)
 	group := NewCommandGroup(CommandOptions{DigestDir: path})
 
+	// The default depth maps the tree a couple of levels deep, collapsing the
+	// deeper section into a count rather than printing its label.
 	var stdout, stderr bytes.Buffer
 	if err := group.Run(context.Background(), []string{"tree"}, strings.NewReader(""), &stdout, &stderr); err != nil {
 		t.Fatalf("tree failed: %v\nstderr: %s", err, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "api/") || !strings.Contains(stdout.String(), "CLI > Flags") {
+	if !strings.Contains(stdout.String(), "api/") || !strings.Contains(stdout.String(), "cli/  (+1)") {
 		t.Fatalf("unexpected tree output: %s", stdout.String())
+	}
+	if strings.Contains(stdout.String(), "CLI > Flags") {
+		t.Fatalf("default tree should not descend to the leaf label: %s", stdout.String())
+	}
+
+	// --depth all expands every level.
+	stdout.Reset()
+	if err := group.Run(context.Background(), []string{"tree", "--depth", "all"}, strings.NewReader(""), &stdout, &stderr); err != nil {
+		t.Fatalf("tree --depth all failed: %v\nstderr: %s", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "CLI > Flags") {
+		t.Fatalf("unexpected deep tree output: %s", stdout.String())
 	}
 
 	stdout.Reset()
