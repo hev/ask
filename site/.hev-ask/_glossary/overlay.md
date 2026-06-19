@@ -1,6 +1,6 @@
 ---
 term: "overlay"
-aliases: ["search overlay","command palette","cmd k","command k"]
+aliases: ["search overlay","command palette","cmdk","command-k"]
 ---
 
-The keyboard-opened search UI that runs keyword search instantly and asks the loop on Enter.
+The ⌘K UI that searches the digest and synthesizes answers for human readers.

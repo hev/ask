@@ -26,6 +26,7 @@ path-addressed, mirroring your doc URLs:
 ```sh
 ask tree                              # map the digest — titles only, ~2 levels deep
 ask tree api --depth all             # map one subtree, fully expanded
+ask tree _glossary                    # the glossary, each term with its aliases
 ask cat overview/quick-start          # read a section (the full distilled body)
 ask cat _glossary/digest              # read a glossary entry (alias-aware)
 ask cat _meta                         # read the site overview
@@ -44,7 +45,9 @@ fuzzy path resolution, glossary aliases, and the same reads over `--endpoint`.
 number of sections, and defaults to two levels deep so a large site stays
 skimmable. Pass a path to scope it and `--depth N` (or `--depth all`) to go
 deeper; directories truncated at the limit report a `(+N)` count of what they
-hide. `cat` and `facts` then open one section file at a time.
+hide. The `_glossary/` lookup table is collapsed on the map by default — scope
+into it (`ask tree _glossary`) to list each term with the aliases that widen
+keyword search. `cat` and `facts` then open one section file at a time.
 
 `ask answer` uses the deployed endpoint's agentic SSE path, so it requires
 `--endpoint`. For keyless local retrieval, use `ask grep` and `ask cat`.

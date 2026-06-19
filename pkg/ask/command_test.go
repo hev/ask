@@ -60,6 +60,11 @@ func TestCommandGroupRunTreeCatAndFacts(t *testing.T) {
 	if strings.Contains(stdout.String(), "CLI > Flags") {
 		t.Fatalf("default tree should not descend to the leaf label: %s", stdout.String())
 	}
+	// The glossary is a lookup table, so the map collapses it rather than
+	// listing every term.
+	if !strings.Contains(stdout.String(), "_glossary/  (+1)") || strings.Contains(stdout.String(), "→") {
+		t.Fatalf("glossary should be collapsed on the default map: %s", stdout.String())
+	}
 
 	// --depth all expands every level.
 	stdout.Reset()
@@ -84,6 +89,22 @@ func TestCommandGroupRunTreeCatAndFacts(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "--digest-path") {
 		t.Fatalf("unexpected facts output: %s", stdout.String())
+	}
+}
+
+// Scoping into the glossary expands it and labels each term with its aliases
+// (the synonyms that widen keyword search) instead of repeating the term.
+func TestCommandGroupTreeGlossaryScoped(t *testing.T) {
+	path := writeCommandTestGraph(t)
+	group := NewCommandGroup(CommandOptions{DigestDir: path})
+
+	var stdout, stderr bytes.Buffer
+	if err := group.Run(context.Background(), []string{"tree", "_glossary"}, strings.NewReader(""), &stdout, &stderr); err != nil {
+		t.Fatalf("tree _glossary failed: %v\nstderr: %s", err, stderr.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "knowledge-digest  → kg, shadow site") {
+		t.Fatalf("scoped glossary should show aliases: %s", out)
 	}
 }
 

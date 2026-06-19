@@ -570,13 +570,15 @@ func RenderDigestTree(digest Digest) string {
 
 // TreeEntry is a node in a depth-limited digest tree view. Directories cut off
 // at the depth limit carry ChildCount: the number of leaf descendants hidden
-// below the cut.
+// below the cut. Glossary leaves carry Aliases — the synonyms that widen
+// keyword search, which is the part worth showing instead of the bare term.
 type TreeEntry struct {
-	Path       string `json:"path"`
-	Kind       string `json:"kind"`
-	Title      string `json:"title,omitempty"`
-	URL        string `json:"url,omitempty"`
-	ChildCount int    `json:"childCount,omitempty"`
+	Path       string   `json:"path"`
+	Kind       string   `json:"kind"`
+	Title      string   `json:"title,omitempty"`
+	URL        string   `json:"url,omitempty"`
+	Aliases    []string `json:"aliases,omitempty"`
+	ChildCount int      `json:"childCount,omitempty"`
 }
 
 type treeNode struct {
@@ -624,14 +626,23 @@ func (node *treeNode) leafDescendants() int {
 // the limit report how many leaves they hide via ChildCount.
 func RenderDigestTreeDepth(digest Digest, scope string, maxDepth int) (string, []TreeEntry, error) {
 	start := buildDigestTreeNodes(digest)
-	if cleaned := cleanDigestPath(scope); cleaned != "" {
-		for _, segment := range strings.Split(cleaned, "/") {
+	cleanScope := cleanDigestPath(scope)
+	if cleanScope != "" {
+		for _, segment := range strings.Split(cleanScope, "/") {
 			next, ok := start.byName[segment]
 			if !ok {
 				return "", nil, fmt.Errorf("no digest path matched %q", scope)
 			}
 			start = next
 		}
+	}
+
+	// The glossary is a flat lookup table, not part of the doc structure, so it
+	// stays collapsed on the map unless you scope into it (ask tree _glossary).
+	inGlossary := cleanScope == digestGlossaryDir || strings.HasPrefix(cleanScope, digestGlossaryDir+"/")
+	glossaryAliases := map[string][]string{}
+	for _, term := range digest.Glossary {
+		glossaryAliases[digestGlossaryDir+"/"+glossaryPath(term)] = term.Aliases
 	}
 
 	var lines []string
@@ -648,15 +659,24 @@ func RenderDigestTreeDepth(digest Digest, scope string, maxDepth int) (string, [
 				entry.Title = child.entry.Title
 				entry.URL = child.entry.URL
 			}
+			collapseGlossary := isDir && child.path == digestGlossaryDir && !inGlossary
 			name := child.name
 			if isDir {
 				name += "/"
 			}
 			line := strings.Repeat("  ", level-1) + name
-			if entry.Title != "" {
+			if entry.Kind == "glossary" {
+				// Show the aliases (the recall payload) rather than repeating the
+				// term, which is already the path segment.
+				if entry.Aliases = glossaryAliases[child.path]; len(entry.Aliases) > 0 {
+					line += "  → " + strings.Join(entry.Aliases, ", ")
+				} else if entry.Title != "" {
+					line += "  " + entry.Title
+				}
+			} else if entry.Title != "" {
 				line += "  " + entry.Title
 			}
-			atLimit := maxDepth > 0 && level >= maxDepth
+			atLimit := collapseGlossary || (maxDepth > 0 && level >= maxDepth)
 			if isDir && atLimit {
 				entry.ChildCount = child.leafDescendants()
 				line += fmt.Sprintf("  (+%d)", entry.ChildCount)

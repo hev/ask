@@ -1,6 +1,6 @@
 ---
 term: "digest"
-aliases: ["ask digest","kg","knowledge graph","index"]
+aliases: ["ask digest","kg","knowledge graph",".hev-ask"]
 ---
 
-The committed markdown directory hev ask distils from your docs, read by the overlay, CLI, and MCP.
+The committed offline-built markdown tree, one file per doc section, that all readers navigate.

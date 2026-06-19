@@ -1,7 +1,7 @@
 ---
 version: 2
-generatedAt: "2026-06-18T23:39:07.381Z"
-contentHash: "6434fe501932d28fd83c9363724f06d44bea68cae8090d2fb0ae236e0535d009"
+generatedAt: "2026-06-19T02:40:57.073Z"
+contentHash: "0d50d5f620f95e4b3d44c731ec546540a5acf9b4e30d01d448c9c8d270e28348"
 suggestions: ["How do I add hev ask to my Astro site?","Can I use hev ask on Docusaurus or MkDocs?","How does the agentic answer loop work?","How do I build and refresh the ask digest?","What can't hev ask do?"]
 ---
 
