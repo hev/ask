@@ -183,6 +183,36 @@ test('a digest larger than the inline budget navigates by search_sections + open
   assert.ok(JSON.stringify(seenMessages[2]).includes('--max-workers'), 'open_section surfaces verbatim facts');
 });
 
+test('routed loop answers from searched sections even when the model never opens one', async () => {
+  const big: Digest = { ...digest(), overview: 'x'.repeat(INLINE_DIGEST_BUDGET + 1) };
+  let turn = 0;
+  const call: CallClaude = async () => {
+    turn += 1;
+    if (turn === 1) return { stop_reason: 'tool_use', content: [toolUse('s1', 'search_sections', { query: 'autoscaling' })] };
+    return { stop_reason: 'end_turn', content: [{ type: 'text', text: 'done' }] }; // never calls open_section
+  };
+
+  const events = await drain(
+    runAgenticAnswerLoop({
+      apiKey: 'k',
+      query: 'how does scaling work?',
+      chunks: makeChunks(),
+      digest: big,
+      config,
+      call,
+      stream: streamText('Autoscaling scales workers. ', 'See [autoscaling](/docs/concepts#kubernetes-autoscaling).'),
+    }),
+  );
+
+  const sources = (events.find((e) => e.type === 'sources') as { sources: Array<{ url: string }> }).sources;
+  assert.ok(
+    sources.some((s) => s.url === '/docs/concepts#kubernetes-autoscaling'),
+    'grounds the answer in searched sections without requiring an explicit open',
+  );
+  assert.ok(events.some((e) => e.type === 'token'), 'still streams an answer');
+  assert.equal(events.at(-1)?.type, 'done');
+});
+
 test('a node-less (v1) digest still uses the legacy search tool', async () => {
   const v1: Digest = {
     version: 2,

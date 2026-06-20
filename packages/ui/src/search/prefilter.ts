@@ -48,13 +48,24 @@ export function prefilter(
   if (!terms.length) return [];
 
   const signal = nodeSignal(nodes);
+  // Inverse document frequency: down-weight terms common across the corpus
+  // (stopwords, ubiquitous words like "authentication" or "setup") so a rare,
+  // on-topic term ("oidc") dominates ranking. Without it, plain overlap buries
+  // the specific section under pages that merely share several common words —
+  // which degrades badly as the corpus grows (hundreds → thousands of sections).
+  const df = new Map<string, number>();
+  for (const chunk of chunks) for (const token of chunk.tokens) df.set(token, (df.get(token) ?? 0) + 1);
+  const total = chunks.length;
+  const weights = new Map(terms.map((term) => [term, Math.log(1 + total / (1 + (df.get(term) ?? 0)))]));
+
   const scored = chunks
     .map((chunk) => {
       const boost = signal.get(chunk.id);
       let score = 0;
       for (const term of terms) {
-        if (chunk.tokens.has(term)) score += 1;
-        if (boost?.has(term)) score += 1;
+        const weight = weights.get(term) ?? 0;
+        if (chunk.tokens.has(term)) score += weight;
+        if (boost?.has(term)) score += weight;
       }
       return { chunk, score };
     })

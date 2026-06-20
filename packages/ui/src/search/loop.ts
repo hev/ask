@@ -363,13 +363,13 @@ function routedDigestSystemPrompt(digest: Digest): AnthropicTextBlock[] {
       type: 'text',
       text: `You are the documentation assistant for this site. Answer the user's question using ONLY documentation sections you retrieve.
 
-The documentation is large, so it is not all shown here. Use search_sections to find sections relevant to the question, then read the ones you need with open_section for their summary and exact facts. Run a few searches with varied terms if the first does not surface what you need. Open every section your answer draws on — you may only link to sections you opened.
+The documentation is large, so it is not all shown here. Use search_sections to find relevant sections — each result includes a short summary you can answer from directly. When you need a section's exact facts (flags, commands, identifiers), open_section it. One or two focused searches is plenty: once the results cover the question, STOP searching and answer. Do not keep searching for a perfect match.
 
 Write a short, direct answer in Markdown:
 - Start IMMEDIATELY with the substance. Your first sentence must answer the question. Never open with "Based on…", "Here is…", "Sure", a restatement of the question, or any summary/preamble.
 - Keep it tight: one or two short paragraphs, plus a short bullet list only if it genuinely helps. This renders in a small search popover, so do NOT use headings (#, ##) or horizontal rules (---).
-- For exact strings (flags, commands, identifiers, versions), quote the section's \`facts\` verbatim — never reword them.
-- When you reference a section, link to it inline using its exact \`url\`, e.g. [autoscaling](/docs/concepts#kubernetes-autoscaling). Never invent a URL or anchor.
+- For exact strings (flags, commands, identifiers, versions), quote a section's \`facts\` verbatim — never reword them.
+- When you reference a section, link to it inline using its exact \`url\` from your search results or open_section, e.g. [autoscaling](/docs/concepts#kubernetes-autoscaling). Never invent a URL or anchor.
 - If the documentation does not cover the question, say so plainly in one sentence and do not fabricate an answer.`,
     },
     {
@@ -415,6 +415,7 @@ async function* routedDigestAnswerLoop({
   const byId = new Map(chunks.map((chunk) => [chunk.id, chunk]));
   const nodesById = new Map(digest.nodes.map((node) => [node.id, node]));
   const opened = new Map<string, DigestNode>();
+  const seen = new Map<string, DigestNode>(); // sections surfaced by search, in rank order
   const messages: AnthropicMessage[] = [{ role: 'user', content: `Query: ${query}` }];
   const system = routedDigestSystemPrompt(digest);
 
@@ -450,10 +451,15 @@ async function* routedDigestAnswerLoop({
       if (block.name === 'search_sections') {
         const searchQuery = normalizeToolQuery(block.input) || query;
         yield { type: 'search', query: searchQuery };
+        const results = searchSections(searchQuery, chunks, nodesById, digest, config);
+        for (const result of results) {
+          const node = nodesById.get(result.id);
+          if (node && !seen.has(node.id)) seen.set(node.id, node);
+        }
         toolResults.push({
           type: 'tool_result',
           tool_use_id: block.id,
-          content: JSON.stringify(searchSections(searchQuery, chunks, nodesById, digest, config)),
+          content: JSON.stringify(results),
         });
       } else if (block.name === 'open_section') {
         const id = normalizeId(block.input);
@@ -472,28 +478,33 @@ async function* routedDigestAnswerLoop({
     messages.push({ role: 'user', content: toolResults });
   }
 
-  // Fallback: ground the answer even if the model opened nothing, by opening the
-  // best keyword matches for the original query.
-  if (!opened.size) {
+  // Fallback: if the model never searched or opened anything, ground on the best
+  // keyword matches for the original query so the answer isn't empty.
+  if (!opened.size && !seen.size) {
     for (const candidate of prefilter(chunks, query, digest.glossary, config.maxResults, config.perDocCap, digest.nodes)) {
-      const node = open(candidate.id);
-      if (node) yield { type: 'search', query: node.heading ?? node.title };
+      const node = nodesById.get(candidate.id);
+      if (node && !seen.has(node.id)) seen.set(node.id, node);
     }
-    if (opened.size && lastRole(messages) !== 'user') {
-      const sections = [...opened.values()].map((node) => openSectionResult(node, byId));
-      messages.push({ role: 'user', content: `Opened sections:\n${JSON.stringify(sections)}` });
+    if (seen.size && lastRole(messages) !== 'user') {
+      const sections = [...seen.values()].map((node) => openSectionResult(node, byId));
+      messages.push({ role: 'user', content: `Relevant sections:\n${JSON.stringify(sections)}` });
     }
   }
+
+  // The answer is grounded in everything the model surfaced: sections it opened
+  // (full facts) ranked first, then the summaries from its searches. This lets it
+  // answer from search results without a separate open per section.
+  const grounded = new Map<string, DigestNode>([...opened, ...seen]);
 
   if (lastRole(messages) === 'assistant') {
     messages.push({
       role: 'user',
       content:
-        'Write the answer now. Begin directly with the answer itself — no preamble, no "based on…" opener, no headings. Link only to sections you opened, using their exact url.',
+        'Write the answer now, grounded in the sections from your search results and any you opened. Begin directly with the answer — no preamble. Do NOT say you will search, check, or look further: you cannot, and you already have the context you will get. If the sections do not cover the question, say so in one sentence. Link only to section urls you have seen.',
     });
   }
 
-  const sources = sourcesFromNodes(opened, config.maxResults);
+  const sources = sourcesFromNodes(grounded, config.maxResults);
   yield { type: 'sources', sources };
 
   // Phase 2: streamed answer turn — no tools, so the model can only answer.
