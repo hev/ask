@@ -485,36 +485,32 @@ async function* routedDigestAnswerLoop({
       const node = nodesById.get(candidate.id);
       if (node && !seen.has(node.id)) seen.set(node.id, node);
     }
-    if (seen.size && lastRole(messages) !== 'user') {
-      const sections = [...seen.values()].map((node) => openSectionResult(node, byId));
-      messages.push({ role: 'user', content: `Relevant sections:\n${JSON.stringify(sections)}` });
-    }
   }
 
-  // The answer is grounded in everything the model surfaced: sections it opened
-  // (full facts) ranked first, then the summaries from its searches. This lets it
-  // answer from search results without a separate open per section.
-  const grounded = new Map<string, DigestNode>([...opened, ...seen]);
-
-  if (lastRole(messages) === 'assistant') {
-    messages.push({
-      role: 'user',
-      content:
-        'Write the answer now, grounded in the sections from your search results and any you opened. Begin directly with the answer — no preamble. Do NOT say you will search, check, or look further: you cannot, and you already have the context you will get. If the sections do not cover the question, say so in one sentence. Link only to section urls you have seen.',
-    });
-  }
-
-  const sources = sourcesFromNodes(grounded, config.maxResults);
+  // Ground the answer in everything surfaced: opened sections (full facts) first,
+  // then searched summaries, capped to maxResults.
+  const grounded = [...new Map<string, DigestNode>([...opened, ...seen]).values()].slice(0, config.maxResults);
+  const sources = sourcesFromNodes(new Map(grounded.map((node) => [node.id, node])), config.maxResults);
   yield { type: 'sources', sources };
 
-  // Phase 2: streamed answer turn — no tools, so the model can only answer.
+  // Phase 2: a clean answer turn. Replaying the tool transcript keeps the model in
+  // "let me search more" mode (and it tries to call tools that no longer exist), so
+  // instead hand it just the question and the gathered sections — now it can only
+  // write the final prose answer.
+  const answerContext = grounded.map((node) => openSectionResult(node, byId));
+  const answerMessages: AnthropicMessage[] = [
+    {
+      role: 'user',
+      content: `Question: ${query}\n\nAnswer using only these documentation sections:\n${JSON.stringify(answerContext)}`,
+    },
+  ];
   for await (const event of tracedStream(
     stream,
     {
       apiKey,
       model: config.model,
-      system: answerSystem(system, sources),
-      messages,
+      system: routedAnswerSystemPrompt(digest),
+      messages: answerMessages,
       maxTokens: config.answerMaxTokens,
       signal,
     },
@@ -524,6 +520,27 @@ async function* routedDigestAnswerLoop({
   }
 
   yield { type: 'done' };
+}
+
+/** Answer-only system prompt for the routed loop's final turn (no tools). */
+function routedAnswerSystemPrompt(digest: Digest): AnthropicTextBlock[] {
+  return [
+    {
+      type: 'text',
+      text: `You are the documentation assistant for this site. Write the answer to the user's question using ONLY the documentation sections provided in the next message. You have no tools — produce the final prose answer now.
+
+- Start IMMEDIATELY with the substance. Your first sentence must answer the question. Never open with "Based on…", "Here is…", "Sure", "Let me…", or any preamble or statement about searching, opening, or checking further.
+- Keep it tight: one or two short paragraphs, plus a short bullet list only if it genuinely helps. This renders in a small search popover, so do NOT use headings (#, ##) or horizontal rules (---).
+- For exact strings (flags, commands, identifiers, versions), quote a section's \`facts\` verbatim — never reword them.
+- Link to sections inline using their exact \`url\` from the provided sections, e.g. [autoscaling](/docs/concepts#kubernetes-autoscaling). Never invent a URL or anchor.
+- If the provided sections do not answer the question, say so plainly in one sentence and do not fabricate an answer.`,
+    },
+    {
+      type: 'text',
+      text: `<domain_context>\n${digest.context || ''}\n</domain_context>`,
+      cache_control: { type: 'ephemeral' },
+    },
+  ];
 }
 
 function sourcesFromNodes(opened: Map<string, DigestNode>, maxResults: number): Source[] {
