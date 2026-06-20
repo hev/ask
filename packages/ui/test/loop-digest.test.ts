@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { AgenticEvent, CallClaude, StreamClaude } from '../src/search/loop.ts';
-import { runAgenticAnswerLoop, toolUse } from '../src/search/loop.ts';
+import { runAgenticAnswerLoop, toolUse, digestInlineSize, INLINE_DIGEST_BUDGET } from '../src/search/loop.ts';
 import type { StreamEvent } from '../src/llm.ts';
 import { chunkDocument, type Chunk } from '../src/search/chunk.ts';
 import { buildNodes } from '../src/digest/build.ts';
@@ -126,6 +126,61 @@ test('digest loop falls back to opening top matches when the model opens nothing
   const sources = (events.find((e) => e.type === 'sources') as { sources: unknown[] }).sources;
   assert.ok(sources.length > 0, 'fallback opens sections to ground the answer');
   assert.ok(events.some((e) => e.type === 'search'), 'fallback emits an open event');
+});
+
+test('digestInlineSize stays under budget for a small digest, over it for a large one', () => {
+  assert.ok(digestInlineSize(digest()) <= INLINE_DIGEST_BUDGET, 'small digest is inlined');
+  const big: Digest = { ...digest(), overview: 'x'.repeat(INLINE_DIGEST_BUDGET + 1) };
+  assert.ok(digestInlineSize(big) > INLINE_DIGEST_BUDGET, 'large digest routes');
+});
+
+test('a digest larger than the inline budget navigates by search_sections + open_section', async () => {
+  const big: Digest = { ...digest(), overview: 'x'.repeat(INLINE_DIGEST_BUDGET + 1) };
+  const seenMessages: unknown[][] = [];
+  const call: CallClaude = async (opts) => {
+    seenMessages.push(opts.messages as unknown[]);
+    const toolNames = (opts.tools ?? []).map((t) => t.name);
+    assert.ok(
+      toolNames.includes('search_sections') && toolNames.includes('open_section'),
+      'routed path offers search_sections + open_section',
+    );
+    // The system prompt must NOT inline every section summary/fact — that is the
+    // whole point of routing: it stays bounded regardless of corpus size.
+    assert.ok(!JSON.stringify(opts.system).includes('--max-workers'), 'routed prompt does not inline section facts');
+    if (seenMessages.length === 1) {
+      return { stop_reason: 'tool_use', content: [toolUse('s1', 'search_sections', { query: 'autoscaling' })] };
+    }
+    if (seenMessages.length === 2) {
+      return { stop_reason: 'tool_use', content: [toolUse('o1', 'open_section', { id: 'concepts#kubernetes-autoscaling' })] };
+    }
+    return { stop_reason: 'end_turn', content: [{ type: 'text', text: 'Ready.' }] };
+  };
+
+  const events = await drain(
+    runAgenticAnswerLoop({
+      apiKey: 'k',
+      query: 'how does scaling work?',
+      chunks: makeChunks(),
+      digest: big,
+      config,
+      call,
+      stream: streamText('Autoscaling. ', 'See [autoscaling](/docs/concepts#kubernetes-autoscaling).'),
+    }),
+  );
+
+  const searches = events.filter((e) => e.type === 'search').map((e) => (e as { query: string }).query);
+  assert.ok(searches.includes('autoscaling'), 'emits the search sub-query as a chip');
+
+  const sourcesIndex = events.findIndex((e) => e.type === 'sources');
+  const firstTokenIndex = events.findIndex((e) => e.type === 'token');
+  assert.ok(sourcesIndex !== -1 && sourcesIndex < firstTokenIndex, 'sources before tokens');
+  const sources = (events[sourcesIndex] as { sources: Array<{ url: string }> }).sources;
+  assert.ok(sources.some((s) => s.url === '/docs/concepts#kubernetes-autoscaling'), 'opened section is a source');
+  assert.equal(events.at(-1)?.type, 'done');
+
+  // search_sections surfaces the matching id; open_section then carries verbatim facts.
+  assert.ok(JSON.stringify(seenMessages[1]).includes('concepts#kubernetes-autoscaling'), 'search returns the section id');
+  assert.ok(JSON.stringify(seenMessages[2]).includes('--max-workers'), 'open_section surfaces verbatim facts');
 });
 
 test('a node-less (v1) digest still uses the legacy search tool', async () => {

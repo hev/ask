@@ -112,13 +112,37 @@ async function* tracedStream(
 }
 
 /**
- * Entry point. When the committed digest carries distilled `nodes`, the
- * agent navigates that shadow digest (digest path). A node-less (v1 / degraded)
- * digest falls back to the original keyword-search loop, unchanged.
+ * Cap on the characters the digest path inlines into the system prompt (the
+ * `<map>` + `<summaries>` blocks). Below it, every section summary is inlined so
+ * the agent navigates from a complete map — best for small/medium sites. Above
+ * it (large docs, e.g. a CLI/API reference with thousands of sections), inlining
+ * everything would blow the context window, so the loop switches to search-routed
+ * navigation: a compact page map plus a search tool that surfaces ids on demand.
+ * ~200 KB ≈ ~50k tokens; a ~500-section site stays fully inlined as before.
+ */
+export const INLINE_DIGEST_BUDGET = 200_000;
+
+/** Cheap estimate of what `buildDigestSystemPrompt` would inline, without building it. */
+export function digestInlineSize(digest: Digest): number {
+  let size = digest.overview.length;
+  for (const node of digest.nodes) size += node.id.length + node.summary.length + 24;
+  return size;
+}
+
+/**
+ * Entry point. When the committed digest carries distilled `nodes`, the agent
+ * navigates that shadow digest: small digests are inlined whole (digest path);
+ * digests larger than {@link INLINE_DIGEST_BUDGET} are navigated by search so the
+ * prompt stays bounded (routed path). A node-less (v1 / degraded) digest falls
+ * back to the original keyword-search loop, unchanged.
  */
 export async function* runAgenticAnswerLoop(args: AnswerLoopArgs): AsyncGenerator<AgenticEvent> {
   if (args.digest.nodes && args.digest.nodes.length > 0) {
-    yield* digestAnswerLoop(args);
+    if (digestInlineSize(args.digest) <= INLINE_DIGEST_BUDGET) {
+      yield* digestAnswerLoop(args);
+    } else {
+      yield* routedDigestAnswerLoop(args);
+    }
   } else {
     yield* legacyAnswerLoop(args);
   }
@@ -298,6 +322,197 @@ Write a short, direct answer in Markdown:
 /** Fallback map when a digest predates the stored `overview`. */
 function renderNodeMap(nodes: DigestNode[]): string {
   return nodes.map((node) => `- ${node.heading ?? node.title} — \`${node.id}\``).join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// Routed path: navigate a large digest by search instead of inlining it whole.
+// ---------------------------------------------------------------------------
+
+const SEARCH_SECTIONS_TOOL: AnthropicTool = {
+  name: 'search_sections',
+  description:
+    'Search the documentation for sections relevant to a focused sub-query. Returns matching section ids with their group, heading, and a one-line summary. Use it to find the ids you then read with open_section.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      query: { type: 'string', description: 'Focused keyword query or synonym expansion to search for.' },
+    },
+    required: ['query'],
+  },
+};
+
+/** Compact group → page map: orientation only, so the prompt stays bounded. */
+function routedDigestMap(nodes: DigestNode[]): string {
+  const byGroup = new Map<string, Set<string>>();
+  for (const node of nodes) {
+    const group = node.group ?? 'Docs';
+    if (!byGroup.has(group)) byGroup.set(group, new Set());
+    byGroup.get(group)!.add(node.title);
+  }
+  const lines: string[] = [];
+  for (const [group, pages] of byGroup) {
+    lines.push(`## ${group}`);
+    for (const page of pages) lines.push(`- ${page}`);
+  }
+  return lines.join('\n');
+}
+
+function routedDigestSystemPrompt(digest: Digest): AnthropicTextBlock[] {
+  return [
+    {
+      type: 'text',
+      text: `You are the documentation assistant for this site. Answer the user's question using ONLY documentation sections you retrieve.
+
+The documentation is large, so it is not all shown here. Use search_sections to find sections relevant to the question, then read the ones you need with open_section for their summary and exact facts. Run a few searches with varied terms if the first does not surface what you need. Open every section your answer draws on — you may only link to sections you opened.
+
+Write a short, direct answer in Markdown:
+- Start IMMEDIATELY with the substance. Your first sentence must answer the question. Never open with "Based on…", "Here is…", "Sure", a restatement of the question, or any summary/preamble.
+- Keep it tight: one or two short paragraphs, plus a short bullet list only if it genuinely helps. This renders in a small search popover, so do NOT use headings (#, ##) or horizontal rules (---).
+- For exact strings (flags, commands, identifiers, versions), quote the section's \`facts\` verbatim — never reword them.
+- When you reference a section, link to it inline using its exact \`url\`, e.g. [autoscaling](/docs/concepts#kubernetes-autoscaling). Never invent a URL or anchor.
+- If the documentation does not cover the question, say so plainly in one sentence and do not fabricate an answer.`,
+    },
+    {
+      type: 'text',
+      text: `<domain_context>\n${digest.context || 'No digest context is available.'}\n</domain_context>\n\n<map>\n${routedDigestMap(digest.nodes)}\n</map>`,
+      cache_control: { type: 'ephemeral' },
+    },
+  ];
+}
+
+/** Search the digest's nodes for a sub-query; returns distilled candidates. */
+function searchSections(
+  searchQuery: string,
+  chunks: Chunk[],
+  nodesById: Map<string, DigestNode>,
+  digest: Digest,
+  config: SearchLoopConfig,
+) {
+  return prefilter(chunks, searchQuery, digest.glossary, config.candidatePerSearch, config.perDocCap, digest.nodes)
+    .map((candidate) => nodesById.get(candidate.id))
+    .filter((node): node is DigestNode => node !== undefined)
+    .map((node) => ({
+      id: node.id,
+      url: node.url,
+      group: node.group,
+      heading: node.heading,
+      summary: node.summary,
+      ...(node.mode === 'source-primary' ? { reference: true } : {}),
+    }));
+}
+
+async function* routedDigestAnswerLoop({
+  apiKey,
+  query,
+  chunks,
+  digest,
+  config,
+  signal,
+  call = callClaude,
+  stream = streamClaude,
+  telemetry = makeTelemetry(),
+}: AnswerLoopArgs): AsyncGenerator<AgenticEvent> {
+  const byId = new Map(chunks.map((chunk) => [chunk.id, chunk]));
+  const nodesById = new Map(digest.nodes.map((node) => [node.id, node]));
+  const opened = new Map<string, DigestNode>();
+  const messages: AnthropicMessage[] = [{ role: 'user', content: `Query: ${query}` }];
+  const system = routedDigestSystemPrompt(digest);
+
+  const open = (id: string): DigestNode | null => {
+    const node = nodesById.get(id);
+    if (node) opened.set(id, node);
+    return node ?? null;
+  };
+
+  // Phase 1: bounded loop of searches and section opens (non-streaming tool turns).
+  for (let i = 0; i < config.maxIterations; i += 1) {
+    const response = await tracedCall(
+      call,
+      {
+        apiKey,
+        model: config.model,
+        system,
+        messages,
+        tools: [SEARCH_SECTIONS_TOOL, OPEN_SECTION_TOOL],
+        toolChoice: { type: 'auto' },
+        maxTokens: 1024,
+        signal,
+      },
+      telemetry,
+      i,
+    );
+
+    messages.push({ role: 'assistant', content: response.content });
+    const toolResults: AnthropicToolResultBlock[] = [];
+
+    for (const block of response.content) {
+      if (block.type !== 'tool_use') continue;
+      if (block.name === 'search_sections') {
+        const searchQuery = normalizeToolQuery(block.input) || query;
+        yield { type: 'search', query: searchQuery };
+        toolResults.push({
+          type: 'tool_result',
+          tool_use_id: block.id,
+          content: JSON.stringify(searchSections(searchQuery, chunks, nodesById, digest, config)),
+        });
+      } else if (block.name === 'open_section') {
+        const id = normalizeId(block.input);
+        const node = open(id);
+        toolResults.push({
+          type: 'tool_result',
+          tool_use_id: block.id,
+          content: node
+            ? JSON.stringify(openSectionResult(node, byId))
+            : JSON.stringify({ error: `No section "${id}". Search first, then open an exact id from the results.` }),
+        });
+      }
+    }
+
+    if (!toolResults.length) break; // model is ready to answer
+    messages.push({ role: 'user', content: toolResults });
+  }
+
+  // Fallback: ground the answer even if the model opened nothing, by opening the
+  // best keyword matches for the original query.
+  if (!opened.size) {
+    for (const candidate of prefilter(chunks, query, digest.glossary, config.maxResults, config.perDocCap, digest.nodes)) {
+      const node = open(candidate.id);
+      if (node) yield { type: 'search', query: node.heading ?? node.title };
+    }
+    if (opened.size && lastRole(messages) !== 'user') {
+      const sections = [...opened.values()].map((node) => openSectionResult(node, byId));
+      messages.push({ role: 'user', content: `Opened sections:\n${JSON.stringify(sections)}` });
+    }
+  }
+
+  if (lastRole(messages) === 'assistant') {
+    messages.push({
+      role: 'user',
+      content:
+        'Write the answer now. Begin directly with the answer itself — no preamble, no "based on…" opener, no headings. Link only to sections you opened, using their exact url.',
+    });
+  }
+
+  const sources = sourcesFromNodes(opened, config.maxResults);
+  yield { type: 'sources', sources };
+
+  // Phase 2: streamed answer turn — no tools, so the model can only answer.
+  for await (const event of tracedStream(
+    stream,
+    {
+      apiKey,
+      model: config.model,
+      system: answerSystem(system, sources),
+      messages,
+      maxTokens: config.answerMaxTokens,
+      signal,
+    },
+    telemetry,
+  )) {
+    if (event.type === 'text' && event.text) yield { type: 'token', text: event.text };
+  }
+
+  yield { type: 'done' };
 }
 
 function sourcesFromNodes(opened: Map<string, DigestNode>, maxResults: number): Source[] {
