@@ -1,0 +1,20 @@
+---
+import { getCollection } from "astro:content";
+import Deck from "../../layouts/Deck.astro";
+
+export async function getStaticPaths() {
+	const decks = await getCollection("decks", ({ data }) => !data.draft);
+	return decks.map((deck) => ({
+		params: { slug: deck.id },
+		props: { deck },
+	}));
+}
+
+const { deck } = Astro.props;
+---
+
+<Deck
+	title={`${deck.data.title} — hev ask`}
+	description={deck.data.description}
+	body={deck.body ?? ""}
+/>

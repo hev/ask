@@ -1,0 +1,427 @@
+/*
+ * hev mind — reveal.js theme
+ * Self-contained (no theme file from reveal is loaded). Mirrors the site brand:
+ * light/paper, signal #E25822, JetBrains Mono headings, Inter body, left-aligned
+ * editorial layout. Hand-written; vendor-reveal.mjs never overwrites this file.
+ * Tokens kept in sync with site/src/styles/global.css.
+ */
+:root {
+	--paper: #fafaf5;
+	--paper-warm: #f4f0e6;
+	--ink: #111111;
+	--ink-soft: #2a2a28;
+	--muted: #6b6b66;
+	--signal: #e25822;
+	--signal-dark: #c2451b;
+	--rule: #e8e5dc;
+
+	--deck-heading: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo,
+		monospace;
+	--deck-body: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+
+	/* reveal core consumes these (overlay/controls/help) */
+	--r-overlay-element-bg-color: 17, 17, 17;
+	--r-overlay-element-fg-color: 250, 250, 245;
+}
+
+.reveal-viewport {
+	background: var(--paper);
+}
+
+.reveal {
+	font-family: var(--deck-body);
+	font-size: 38px;
+	font-weight: 400;
+	color: var(--ink-soft);
+	-webkit-font-smoothing: antialiased;
+}
+
+.reveal ::selection {
+	background: var(--signal);
+	color: var(--paper);
+}
+.reveal ::-moz-selection {
+	background: var(--signal);
+	color: var(--paper);
+}
+
+/* Editorial: left-aligned, not centered. */
+.reveal .slides {
+	text-align: left;
+}
+.reveal .slides section,
+.reveal .slides section > section {
+	line-height: 1.5;
+	font-weight: inherit;
+}
+
+/* ---------- Headings ---------- */
+.reveal h1,
+.reveal h2,
+.reveal h3,
+.reveal h4,
+.reveal h5,
+.reveal h6 {
+	font-family: var(--deck-heading);
+	color: var(--ink);
+	font-weight: 700;
+	line-height: 1.1;
+	letter-spacing: -0.025em;
+	margin: 0 0 0.5em 0;
+	text-transform: none;
+	text-shadow: none;
+	word-wrap: break-word;
+}
+
+.reveal h1 {
+	font-size: 1.9em;
+	letter-spacing: -0.035em;
+}
+.reveal h2 {
+	font-size: 1.35em;
+}
+.reveal h3 {
+	font-size: 1.05em;
+	color: var(--ink-soft);
+}
+.reveal h4 {
+	font-size: 0.9em;
+	color: var(--muted);
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+}
+
+/* Signal accent rule under the first heading on a slide — the deck's
+   equivalent of the site's "#" / "//" heading marks. */
+.reveal h1::after,
+.reveal h2:first-child::after {
+	content: "";
+	display: block;
+	width: 2.5rem;
+	height: 4px;
+	background: var(--signal);
+	margin-top: 0.4em;
+}
+
+/* ---------- Body ---------- */
+.reveal p {
+	margin: 0 0 0.7em 0;
+	line-height: 1.5;
+}
+
+.reveal a {
+	color: var(--signal);
+	text-decoration: underline;
+	text-underline-offset: 4px;
+	text-decoration-thickness: 1px;
+	transition: color 0.15s ease;
+}
+.reveal a:hover {
+	color: var(--signal-dark);
+}
+
+.reveal strong,
+.reveal b {
+	font-weight: 700;
+	color: var(--ink);
+}
+.reveal em {
+	font-style: italic;
+}
+
+/* ---------- Lists ---------- */
+.reveal ul,
+.reveal ol {
+	display: block;
+	margin: 0 0 0.7em 1.2em;
+}
+.reveal li {
+	margin-bottom: 0.35em;
+	line-height: 1.45;
+}
+.reveal ul li::marker {
+	color: var(--signal);
+}
+.reveal ol li::marker {
+	color: var(--signal);
+	font-family: var(--deck-heading);
+	font-weight: 700;
+}
+
+/* ---------- Quotes ---------- */
+.reveal blockquote {
+	display: block;
+	width: auto;
+	margin: 0.8em 0;
+	padding: 0.2em 0 0.2em 1em;
+	border-left: 4px solid var(--signal);
+	background: none;
+	box-shadow: none;
+	font-style: normal;
+	font-weight: 500;
+	color: var(--ink);
+}
+.reveal blockquote p:first-child,
+.reveal blockquote p:last-child {
+	display: block;
+}
+
+/* ---------- Code ---------- */
+.reveal code {
+	font-family: var(--deck-heading);
+	font-size: 0.85em;
+	background: var(--paper-warm);
+	padding: 0.08em 0.32em;
+	border-radius: 2px;
+	color: var(--ink);
+}
+.reveal pre {
+	font-family: var(--deck-heading);
+	font-size: 0.5em;
+	line-height: 1.5;
+	width: 100%;
+	margin: 0.8em 0;
+	box-shadow: none;
+}
+.reveal pre code {
+	display: block;
+	padding: 0.9em 1.1em;
+	background: var(--paper-warm);
+	border: 1px solid var(--rule);
+	border-radius: 2px;
+	overflow: auto;
+	max-height: 460px;
+	word-wrap: normal;
+	color: var(--ink-soft);
+}
+
+/* ---------- Tables ---------- */
+.reveal table {
+	margin: 0.8em 0;
+	border-collapse: collapse;
+	font-size: 0.85em;
+}
+.reveal table th,
+.reveal table td {
+	text-align: left;
+	padding: 0.3em 0.7em;
+	border-bottom: 1px solid var(--rule);
+}
+.reveal table th {
+	font-family: var(--deck-heading);
+	font-weight: 700;
+	color: var(--ink);
+	text-transform: uppercase;
+	font-size: 0.8em;
+	letter-spacing: 0.06em;
+}
+
+/* ---------- Media ---------- */
+.reveal img,
+.reveal video {
+	max-width: 100%;
+	border: 1px solid var(--rule);
+	border-radius: 2px;
+	box-shadow: none;
+}
+
+/* ---------- Chrome (progress, controls, slide numbers) ---------- */
+.reveal .progress {
+	color: var(--signal);
+	height: 4px;
+}
+.reveal .controls {
+	color: var(--signal);
+}
+.reveal .slide-number {
+	font-family: var(--deck-heading);
+	background: transparent;
+	color: var(--muted);
+	font-size: 0.7em;
+}
+
+/* ---------- Authoring helpers (optional classes) ---------- */
+/* <!-- .slide: class="title" --> for a cover slide */
+.reveal section.title h1 {
+	font-size: 2.4em;
+}
+.reveal section.title h1::after {
+	width: 4rem;
+}
+/* a muted kicker / eyebrow line: use a paragraph with class="kicker" */
+.reveal .kicker {
+	font-family: var(--deck-heading);
+	font-size: 0.7em;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--muted);
+	margin-bottom: 0.6em;
+}
+.reveal .kicker::before {
+	content: "// ";
+	color: var(--signal);
+}
+/* dim, smaller footnote-ish text */
+.reveal .muted {
+	color: var(--muted);
+	font-size: 0.85em;
+}
+
+/* ---------- Layout helpers (author with raw HTML in markdown) ---------- */
+/* Two/three column splits: <div class="cols"> … </div> */
+.reveal .cols {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 1.2em;
+	align-items: start;
+	/* Column content runs denser than a single editorial column, so step the
+	   type down a notch to keep card-heavy slides inside the canvas. */
+	font-size: 0.9em;
+}
+.reveal .cols-3 {
+	grid-template-columns: 1fr 1fr 1fr;
+	/* Three narrow columns wrap more, so step the type down further. */
+	font-size: 0.82em;
+}
+.reveal .cols > * {
+	margin: 0;
+}
+
+/* Bordered panel: <div class="card"> … </div> */
+.reveal .card {
+	background: var(--paper-warm);
+	border: 1px solid var(--rule);
+	border-radius: 2px;
+	padding: 0.7em 0.9em;
+}
+.reveal .card.signal {
+	border-left: 4px solid var(--signal);
+}
+
+/* About / bio slide: photo beside bullets. */
+.reveal .about {
+	display: flex;
+	gap: 1.3em;
+	align-items: center;
+	text-align: left;
+}
+.reveal .about-photo {
+	flex: 0 0 auto;
+}
+.reveal .about-photo img {
+	max-height: 9em;
+	width: auto;
+	max-width: 100%;
+	border-radius: 10px;
+	filter: grayscale(0.08);
+	display: block;
+}
+.reveal .about-bio {
+	flex: 1;
+	min-width: 0;
+}
+.reveal .about-bio ul {
+	margin: 0.25em 0 0;
+}
+
+/* Big-number stats: <div class="stat-grid"><div class="stat">…</div></div> */
+.reveal .stat-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 1em;
+	margin: 0.4em 0;
+}
+.reveal .stat {
+	border-top: 3px solid var(--signal);
+	padding-top: 0.3em;
+}
+.reveal .stat-num {
+	display: block;
+	font-family: var(--deck-heading);
+	font-weight: 700;
+	font-size: 1.7em;
+	line-height: 1;
+	color: var(--ink);
+	letter-spacing: -0.03em;
+}
+.reveal .stat-label {
+	display: block;
+	font-family: var(--deck-heading);
+	font-size: 0.45em;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--muted);
+	margin-top: 0.5em;
+}
+
+/* Inverted slide for dark/full-bleed backgrounds:
+   <!-- .slide: data-background-color="#111111" class="invert" --> */
+.reveal section.invert :is(h1, h2, h3, h4, h5, p, li, strong, b, td, th) {
+	color: #fafaf5;
+}
+.reveal section.invert .stat-num {
+	color: #fafaf5;
+}
+.reveal section.invert .muted,
+.reveal section.invert .stat-label,
+.reveal section.invert .kicker {
+	color: rgba(250, 250, 245, 0.6);
+}
+.reveal section.invert a {
+	color: #f6a07a;
+}
+/* A .card keeps its light paper background even on a dark (invert) slide, so
+   its text must stay dark — undo the invert color flip inside a card. */
+.reveal section.invert .card :is(h1, h2, h3, h4, h5, p, li, td, th, em) {
+	color: var(--ink-soft);
+}
+.reveal section.invert .card :is(h1, h2, h3, h4, strong, b) {
+	color: var(--ink);
+}
+.reveal section.invert .card .muted {
+	color: var(--muted);
+}
+.reveal section.invert .card a {
+	color: var(--signal);
+}
+
+/* Pure-CSS bar chart (no chart engine). Set width on .bar-fill inline:
+   <div class="bars">
+     <div class="bar"><b class="bar-label">…</b>
+       <span class="bar-track"><span class="bar-fill" style="width:82%"></span></span>
+       <span class="bar-val">82%</span></div>
+   </div> */
+.reveal .bars {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5em;
+	font-family: var(--deck-heading);
+	font-size: 0.8em;
+}
+.reveal .bar {
+	display: grid;
+	grid-template-columns: 5.5em 1fr 2.5em;
+	align-items: center;
+	gap: 0.6em;
+}
+.reveal .bar-label {
+	color: var(--ink);
+	font-weight: 500;
+	text-align: right;
+}
+.reveal .bar-track {
+	background: var(--paper-warm);
+	border: 1px solid var(--rule);
+	height: 1.1em;
+	border-radius: 2px;
+	overflow: hidden;
+}
+.reveal .bar-fill {
+	display: block;
+	height: 100%;
+	background: var(--signal);
+}
+.reveal .bar-val {
+	color: var(--muted);
+	font-size: 0.85em;
+}

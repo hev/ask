@@ -1,0 +1,146 @@
+---
+// Full-screen reveal.js deck shell — hev ask branded.
+// Deliberately NOT the Base layout: a deck owns the whole viewport, so it
+// skips the site header/footer/overlay. The reveal runtime + theme are served
+// from /reveal/* (vendored from the mind deck system); the slide markdown is
+// inlined into reveal's <script type="text/template">. Slides split on a line
+// of `---`, vertical sub-slides on `--`, speaker notes after `Note:`.
+interface Props {
+	title: string;
+	description?: string;
+	/** Raw markdown deck body. Slides split on a line of `---`, vertical on `--`. */
+	body: string;
+	/** Where the corner wordmark links back to. */
+	backHref?: string;
+}
+
+const {
+	title,
+	description = "A deck from hev ask.",
+	body,
+	backHref = "/decks",
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+			rel="stylesheet"
+		/>
+		<link rel="stylesheet" href="/reveal/reset.css" />
+		<link rel="stylesheet" href="/reveal/reveal.css" />
+		<link rel="stylesheet" href="/reveal/hev-deck.css" />
+		<style>
+			.deck-mark {
+				position: fixed;
+				top: 1rem;
+				left: 1.25rem;
+				z-index: 40;
+				font-family: "JetBrains Mono", ui-monospace, monospace;
+				font-weight: 700;
+				font-size: 0.85rem;
+				letter-spacing: -0.02em;
+				color: #111111;
+				text-decoration: none;
+				display: inline-flex;
+				align-items: center;
+				opacity: 0.55;
+				transition: opacity 0.15s ease;
+			}
+			.deck-mark:hover {
+				opacity: 1;
+			}
+			.deck-mark .cursor {
+				display: inline-block;
+				width: 0.45em;
+				height: 1em;
+				background: #e25822;
+				margin: 0 0.12em 0 0.04em;
+				vertical-align: text-bottom;
+			}
+			.deck-mark .suffix {
+				color: #6b6b66;
+				font-weight: 500;
+				margin-left: 0.35em;
+			}
+			/* Flip to light text over a dark slide background. */
+			.deck-mark.on-dark {
+				color: #fafaf5;
+			}
+			.deck-mark.on-dark .suffix {
+				color: rgba(250, 250, 245, 0.6);
+			}
+			@media print {
+				.deck-mark {
+					display: none;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<a class="deck-mark" href={backHref} aria-label="hev ask">
+			hev<span class="cursor" aria-hidden="true"></span><span class="suffix"
+				>ask</span
+			>
+		</a>
+		<div class="reveal">
+			<div class="slides">
+				<section
+					data-markdown
+					data-separator={"\\r?\\n---\\r?\\n"}
+					data-separator-vertical={"\\r?\\n--\\r?\\n"}
+					data-separator-notes="^Note:"
+				>
+					<script type="text/template" is:inline set:html={body} />
+				</section>
+			</div>
+		</div>
+
+		<script is:inline src="/reveal/reveal.js"></script>
+		<script is:inline src="/reveal/plugin/markdown/markdown.js"></script>
+		<script is:inline src="/reveal/plugin/notes/notes.js"></script>
+		<script is:inline>
+			Reveal.initialize({
+				plugins: [RevealMarkdown, RevealNotes],
+				hash: true,
+				slideNumber: "c/t",
+				controls: true,
+				progress: true,
+				transition: "fade",
+				transitionSpeed: "fast",
+				width: 1100,
+				height: 700,
+				margin: 0.08,
+			});
+
+			// Keep the corner wordmark legible over dark slide backgrounds.
+			const mark = document.querySelector(".deck-mark");
+			function isDark(hex) {
+				const m = /^#?([0-9a-f]{6})$/i.exec((hex || "").trim());
+				if (!m) return false;
+				const n = parseInt(m[1], 16);
+				const r = (n >> 16) & 255,
+					g = (n >> 8) & 255,
+					b = n & 255;
+				return 0.299 * r + 0.587 * g + 0.114 * b < 128;
+			}
+			function syncMark() {
+				const s = Reveal.getCurrentSlide();
+				mark.classList.toggle(
+					"on-dark",
+					isDark(s && s.getAttribute("data-background-color")),
+				);
+			}
+			Reveal.on("ready", syncMark);
+			Reveal.on("slidechanged", syncMark);
+		</script>
+	</body>
+</html>
