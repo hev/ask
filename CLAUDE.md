@@ -117,7 +117,11 @@ page in the same PR.
   (`content.config.ts`): `title`, `description`, `group`, `order` — all
   required. Nav order is driven by `site/src/lib/docs.ts`, not by `order` alone.
 - ASCII architecture diagrams live in `site/src/lib/diagrams.ts`.
-- `/llms.txt` and `/llms-full.txt` are generated from the docs collection.
+- `/llms.txt` and `/llms-full.txt` are generated from the **ask digest**:
+  `/llms-full.txt` is the distilled section tree (summaries + verbatim facts +
+  source deep links + glossary), not a raw doc dump; `/llms.txt` is the curated
+  docs-nav map with its orientation blurb and glossary drawn from the digest.
+  The digest *is* the site's llms.txt.
 - **Hosting:** Cloudflare Pages, project `hev-ask`, account
   `ce0c7a0a6b9935ddf1a641fd32f596b5`. `pnpm --filter hev-ask-site run deploy`
   builds and `wrangler pages deploy`s (`run` is required — pnpm's built-in
