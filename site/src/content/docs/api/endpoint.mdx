@@ -110,6 +110,47 @@ Keyword mode returns a `200` JSON envelope:
 The `url` field carries the deep link — the page URL with `#anchor` appended for
 a section, absent only for a document's intro chunk.
 
+## How keyword ranking works
+
+Keyword mode ranks heading-level chunks by relevance. It scores each candidate
+rather than filtering on raw substrings, so the closest section rises to the top
+instead of every page that happens to contain the word. For each query the
+endpoint runs one pass:
+
+1. **Expand through the glossary.** The query is tokenized, and when it contains
+   a full glossary phrase (the term or one of its aliases, every token present),
+   that term's tokens are added, so `k8s` pulls in `kubernetes`. The expansion
+   is additive and capped at 24 terms.
+2. **Drop stopwords.** Grammatical and generic words (`how`, `with`, `set`) are
+   removed so they can't dominate ranking; a query that is nothing but
+   stopwords keeps its raw terms.
+3. **Weight by inverse document frequency.** A term that is rare across your
+   corpus (`oidc`) outweighs a ubiquitous one (`authentication`), so the
+   specific section is not buried under pages that merely share common words.
+4. **Score each chunk.** For every query term, a chunk earns its IDF weight when
+   the term is in the chunk body, the weight **again** when the term is in the
+   digest's distilled signal for that section (its `terms`, plus the tokens of
+   its `summary` and its verbatim `facts`), and **three times** the weight when
+   the term is in the section heading or page title.
+5. **Length-normalize.** Scores are divided by a BM25 length factor (`b = 0.75`)
+   so a long page can't win on term count alone, with a floor that avoids
+   over-rewarding tiny stub sections.
+6. **Cap per document, then take the top results.** At most
+   [`perDocCap`](/docs/api/configuration) sections from one page (default 2)
+   reach the results, so one long doc can't crowd out the rest; the top
+   [`maxResults`](/docs/api/configuration) (default 6) are returned, each with a
+   `snippet` excerpted around the first matched term.
+
+The digest is what lifts this above plain overlap: steps 1 and 4 read the
+committed tree's glossary and per-section `summary`, `terms`, and `facts`. With
+no digest tree present, scoring falls back to IDF-weighted token overlap over
+the raw chunk text, so keyword search still works without the distilled boost.
+
+The same scorer backs the overlay's instant path, the CLI's remote
+[`grep`](/docs/api/cli), and the candidate-gathering step of the
+[agentic loop](/docs/concepts#the-agentic-search-loop), so all three rank
+consistently.
+
 ## Agentic response (SSE)
 
 When a key is present and `mode` is `agentic`, the endpoint responds with

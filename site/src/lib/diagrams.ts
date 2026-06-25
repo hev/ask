@@ -1,3 +1,25 @@
+// The digest is a directory you read like any other: a real `ask tree` of this site.
+export const askTreeDiagram = String.raw`$ ask tree
+
+_glossary/                  (+10)
+_meta                       Digest metadata
+api/
+  cli/                      CLI  (+9)
+  configuration/            Configuration  (+5)
+  digest/                   Digest format  (+7)
+  endpoint/                 Search endpoint  (+10)
+  mcp/                      MCP server  (+6)
+  search-overlay/           SearchOverlay component  (+16)
+concepts/                   Concepts
+  chunks-and-anchors        Concepts > Chunks and anchors
+  the-agentic-search-loop   Concepts > The agentic search loop
+  the-ask-digest-directory  Concepts > The ask digest directory
+  …                         (+7)
+digest-creation/            Digest creation  (+5)
+limits/                     Limits  (+8)
+quickstart/                 Quick start  (+9)
+tradeoffs/                  Tradeoffs  (+7)`;
+
 // The digest is a directory: how it's built, what it is, and the three ways it's read.
 export const askMapDiagram = String.raw`  ask digest build
       glob collections → chunk by headings → distil each section (Opus 4.8)

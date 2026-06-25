@@ -7,30 +7,26 @@ order: 0
 
 import Diagram from "../../components/docs/Diagram.astro";
 import Callout from "../../components/docs/Callout.astro";
-import { askMapDiagram } from "../../lib/diagrams";
+import { askTreeDiagram } from "../../lib/diagrams";
 
 **hev ask** distills a docs site into an **ask digest**: a compact
-**directory** with one small markdown file per section. The digest is a
-distilled mirror of your docs that an agent navigates the way it navigates any
-directory, and that a `⌘K` overlay answers your readers from. It works with
-[Astro](https://astro.build), Docusaurus, VitePress, MkDocs, or any folder of
-markdown.
+**directory** with one small markdown file per section. It's a mirror of your
+docs that an agent navigates like any other directory, and that a `⌘K` overlay
+answers your readers from. The digest is **host-neutral**: it's built from your
+markdown, not your renderer, so it works with [Astro](https://astro.build),
+Docusaurus, VitePress, MkDocs, or any folder of markdown. hev ask ships a
+turnkey Astro integration, and other frameworks add the same overlay with one
+script. You build the digest **offline** with the bundled skill and your Claude
+Code subscription, then commit the tree. It's a good fit for technical
+documentation, internal wikis, and other medium-sized corpora.
 
-The digest is **host-neutral**: it's built from your markdown, not your
-renderer. hev ask ships a turnkey integration for Astro, and every other
-framework can add the same overlay with a single script. Build the digest
-**offline** with the bundled skill (and your Claude Code subscription), commit
-the tree, and your docs become readable three ways from one artifact. It's a
-good fit for technical documentation, internal wikis, and other medium-sized
-corpora.
-
-<Diagram label="hev ask architecture">{askMapDiagram}</Diagram>
+<Diagram label="the ask digest as a directory">{askTreeDiagram}</Diagram>
 
 ## One artifact, three readers
 
 The digest is built **inside your coding agent** — the bundled Claude Code
 skill writes the `.hev-ask/` tree using your existing **agentic coding
-subscription**, so there's no `ANTHROPIC_API_KEY` and no per-build token spend.
+subscription**, so there's no provider API key and no per-build token spend.
 Commit the tree, and the same files serve:
 
 - **the `⌘K` overlay**, for humans — instant keyword results as readers type,
@@ -45,11 +41,19 @@ Commit the tree, and the same files serve:
 The overlay synthesizes an answer for the human reader. The CLI and MCP hand
 an agent the raw files and let its own tools do the rest.
 
-<Callout label="the corpus is your content">
-hev ask only reads the content you point it at — an Astro content collection, a
-Docusaurus `docs/` tree, a set of markdown globs. There's no crawler, no
-external index, and nothing to keep in sync — the docs you render *are* the
-digest, and the committed `.hev-ask/` tree is reviewable per section in every PR.
+The same tree also makes a ready-made [`llms.txt`](https://llmstxt.org): every
+section is a distilled summary with a source deep link, so you can serve the
+digest at `/llms.txt` and `/llms-full.txt` for agents that look there first.
+This site serves both from its own digest.
+
+<Callout label="drop ask into your own CLI">
+The digest reads (`tree`, `cat`, `grep`, `facts`) also ship as a
+[Go library](/docs/api/cli#go-library) in `pkg/ask`, beyond the bundled `ask`
+binary. Mount the dependency-free command group in your own CLI with
+`ask.NewCommandGroup(...)`, or call the lower-level helpers directly:
+`LoadDigest` (from disk or an `embed.FS`), `GetSection`, `SearchDigest`, and
+`ServeMCP`. Every read is keyless and offline, so your tool grounds in the same
+committed tree the overlay and MCP do.
 </Callout>
 
 ## Who this is for

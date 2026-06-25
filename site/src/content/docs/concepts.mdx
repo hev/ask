@@ -225,9 +225,9 @@ part worth doing in a **Claude Code skill**.
 - **Claude Code skill (recommended).** A skill walks Claude through reading the
   corpus and writing the distillation, then assembles the `.hev-ask/` tree
   locally. It runs inside your existing Claude Code subscription (**no
-  `ANTHROPIC_API_KEY`, no per-build token spend on your own key**) and fits the
+  provider API key, no per-build token spend on your own key**) and fits the
   editor workflow most authors are already in.
-- **`ask digest build` (fallback).** One `ANTHROPIC_API_KEY` call to
+- **`ask digest build` (fallback).** One [provider API key](/docs/api/configuration#choosing-a-provider) call to
   **Claude Opus 4.8** (default) does the same distillation unattended — the right
   choice for CI or anyone not using Claude Code.
 

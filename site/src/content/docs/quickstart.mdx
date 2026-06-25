@@ -10,8 +10,8 @@ import CodeTabs from "../../components/docs/CodeTabs.astro";
 
 Add search to an existing Astro 5 docs site whose content lives in a collection
 (say `src/content/docs`) in about five minutes. You'll get **instant keyword
-search** working first, with no key and nothing to host. Then add an
-**`ANTHROPIC_API_KEY`** on the server and the same overlay also runs the
+search** working first, with no key and nothing to host. Then add a
+**provider [API key](/docs/api/configuration#choosing-a-provider)** on the server and the same overlay also runs the
 **agentic answer loop** on Enter; if you only want the search UI, skip the key.
 
 <Callout label="on Docusaurus, VitePress, or MkDocs?">
@@ -27,7 +27,7 @@ for the step-by-step on yours.
 - **Astro 5** with at least one [content collection](https://docs.astro.build/en/guides/content-collections/).
 - A **server or hybrid adapter** (Node, Cloudflare, Vercel, …) — the `/api/ask`
   route renders on demand, so a fully static build can't serve it.
-- An **`ANTHROPIC_API_KEY`** to enable agentic search. Keyword search needs no
+- A **provider API key** to enable agentic search. Keyword search needs no
   key. (OpenAI and OpenRouter work too, via the
   [`provider` option](/docs/api/configuration#choosing-a-provider); this guide
   uses the Anthropic default.)
@@ -132,17 +132,17 @@ Claude runs:
 
 ```sh
 export ANTHROPIC_API_KEY=sk-ant-...
-pnpm exec ask digest build      # writes the .hev-ask/ tree
+ask digest build  # writes the .hev-ask/ tree
 ```
 
 ```sh
 export OPENAI_API_KEY=sk-...
-pnpm exec ask digest build --provider openai
+ask digest build --provider openai
 ```
 
 ```sh
 export OPENROUTER_API_KEY=sk-or-...
-pnpm exec ask digest build --provider openrouter
+ask digest build --provider openrouter
 ```
 
 </CodeTabs>
@@ -150,7 +150,7 @@ pnpm exec ask digest build --provider openrouter
 Then verify and commit, however you built it:
 
 ```sh
-pnpm exec ask digest verify     # builds the site, checks every anchor resolves
+ask digest verify  # builds the site, checks every anchor resolves
 git add .hev-ask
 ```
 

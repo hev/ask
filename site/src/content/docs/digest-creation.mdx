@@ -34,11 +34,22 @@ verbatim facts, the overview, the anchors, and the per-section hashes. That
 seam is what lets the model step run anywhere a model is available,
 including inside your editor.
 
+<Callout label="the digest is your llms.txt">
+Every section is a distilled summary with its verbatim facts, a source deep
+link, and a shared glossary, so the tree is already in the shape the
+[`llms.txt`](https://llmstxt.org) convention wants. Serve it at `/llms.txt` and
+`/llms-full.txt` so agents that look there get the distilled, navigable corpus
+instead of a raw page dump. Read
+[`virtual:hev-ask/digest`](/docs/api/configuration#what-the-integration-does) on
+Astro, or the endpoint's keyless [digest reads](/docs/api/endpoint#digest-reads-get)
+on any framework; hevask.com generates both from its own digest.
+</Callout>
+
 ## Two ways to run the build
 
 **The Claude Code skill (recommended).** The bundled `build-digest` skill
 builds the tree inside your Claude Code subscription, so it needs no
-`ANTHROPIC_API_KEY` and spends no tokens on your own key. It shards the
+provider API key and spends no tokens on your own key. It shards the
 corpus and distils each shard in a fresh context, so corpus size never hits
 a context limit:
 
@@ -59,17 +70,17 @@ distillation unattended — **Claude Opus 4.8** on the default provider, or any
 
 ```sh
 export ANTHROPIC_API_KEY=sk-ant-...
-pnpm exec ask digest build
+ask digest build
 ```
 
 ```sh
 export OPENAI_API_KEY=sk-...
-pnpm exec ask digest build --provider openai
+ask digest build --provider openai
 ```
 
 ```sh
 export OPENROUTER_API_KEY=sk-or-...
-pnpm exec ask digest build --provider openrouter
+ask digest build --provider openrouter
 ```
 
 </CodeTabs>
@@ -88,7 +99,7 @@ cheap enough to be the intended workflow rather than a chore.
 ## Verify, review, commit
 
 ```sh
-pnpm exec ask digest verify     # builds the site, checks every anchor resolves
+ask digest verify  # builds the site, checks every anchor resolves
 git add .hev-ask
 ```
 

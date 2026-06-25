@@ -70,7 +70,7 @@ So *type a question → Enter* asks AI, and *type one word → Enter* (or *↓�
 opens a keyword hit. The footer hint reflects the current mode.
 
 <Callout label="when there's no API key">
-If the server has no provider API key (`ANTHROPIC_API_KEY` by default), asking
+If the server has no provider [API key](/docs/api/configuration#choosing-a-provider), asking
 returns keyword results and the
 response carries a warning the overlay shows. Search still works; it just
 doesn't escalate to the model.
@@ -175,7 +175,7 @@ can't drift from what you deploy.
 For agentic answers without Astro, deploy the bounded answer loop as a
 standalone service: a Cloudflare Worker, a Node server, or a Vercel
 function. It serves the same [`POST /api/ask` contract](/docs/api/endpoint)
-the Astro route does, holds the `ANTHROPIC_API_KEY` server-side, and reads
+the Astro route does, holds the provider [API key](/docs/api/configuration#choosing-a-provider) server-side, and reads
 the committed digest tree. Deploy it once and point any number of sites'
 overlays at it. Keyword search runs entirely in the browser, and only the
 answer loop needs anything deployed.
@@ -183,7 +183,7 @@ answer loop needs anything deployed.
 ```sh
 # scaffold and deploy the Worker flavor
 ask endpoint init --target cloudflare
-wrangler deploy            # set ANTHROPIC_API_KEY as a secret
+wrangler deploy            # set your provider's API key as a secret
 ```
 
 ### Docusaurus

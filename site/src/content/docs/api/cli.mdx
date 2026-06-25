@@ -139,8 +139,8 @@ Anchor drift is always fatal; coverage and literal-fidelity are warnings unless
 
 ## Claude Code skill
 
-The bundled `build-digest` skill builds the tree without using your
-`ANTHROPIC_API_KEY`. It runs the deterministic producer seam, sharded:
+The bundled `build-digest` skill builds the tree without using a provider
+[API key](/docs/api/configuration#choosing-a-provider). It runs the deterministic producer seam, sharded:
 
 ```text
 ask digest corpus --shards-dir .hev-ask/shards    -> input-<id>.json + manifest.json
@@ -233,8 +233,8 @@ published installs use the packaged binary path.
 ## Where it runs
 
 The producer commands run locally or in CI with filesystem access. The Astro
-integration also invokes `ask digest build` during `astro build` when
-`ANTHROPIC_API_KEY` is present, then falls back to the committed tree if the
+integration also invokes `ask digest build` during `astro build` when a
+provider [API key](/docs/api/configuration#choosing-a-provider) is present, then falls back to the committed tree if the
 build command cannot run. The deployed site reads the committed tree through
 `virtual:hev-ask/digest`; it does not need filesystem access for digest reads.
 
