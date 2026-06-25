@@ -14,6 +14,7 @@ packages/ask-*/bin/ask.exe
 !packages/ask-*/bin/.gitkeep
 
 # local-only working files (kept on disk, not on GitHub)
+prospects.csv
 tpuff-docs-local/
 PLAN.md
 PLAN-v3-cli.md
