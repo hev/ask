@@ -1,5 +1,7 @@
 # RFC 0003: MCP as hydrate — one tool, a local filesystem, and instructions
 
+> **Status:** Implemented in 0.2.0.
+
 ## Summary
 
 Reduce the ask MCP server to its smallest honest shape: **one tool plus

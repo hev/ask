@@ -12,6 +12,7 @@ export const docsNav = [
 			"concepts",
 			"tradeoffs",
 			"limits",
+			"roadmap",
 		],
 	},
 	{

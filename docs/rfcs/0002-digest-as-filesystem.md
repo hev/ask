@@ -1,5 +1,7 @@
 # RFC 0002: The digest is a filesystem — a section tree and the read verbs over it
 
+> **Status:** Implemented in 0.2.0.
+
 ## Summary
 
 Stop treating the ask digest as one opaque JSON blob and make it a literal
