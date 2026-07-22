@@ -12,6 +12,7 @@ import {
 import { digestTreeFiles } from './digest/tree.ts';
 import { makeTelemetry, telemetryFromEnv } from './observability';
 import { PROVIDERS, clientFor, resolveProviderName } from './providers';
+import { resolveCfContext, resolveEnv } from './runtime-env.ts';
 import { hashableChunkText } from './search/chunk';
 import { buildIndex, prefilter, type Candidate, type Chunk } from './search/index';
 import { runAgenticAnswerLoop, type AgenticEvent } from './search/loop';
@@ -24,16 +25,6 @@ let staleWarningIssued = false;
 function getIndex(): Promise<Chunk[]> {
   if (!indexPromise) indexPromise = buildIndex(config.collections, config.basePath, config.chunkHeadingDepth);
   return indexPromise;
-}
-
-// Merge the runtime environments the endpoint may run under: Cloudflare's
-// per-request `locals.runtime.env` wins over `process.env` (Node adapters),
-// which wins over build-time `import.meta.env`.
-function resolveEnv(locals: unknown): Record<string, string | undefined> {
-  const fromRuntime = (locals as { runtime?: { env?: Record<string, string> } })?.runtime?.env ?? {};
-  const fromProcess = (typeof process !== 'undefined' ? process.env : undefined) ?? {};
-  const fromImportMeta = (import.meta as { env?: Record<string, string> }).env ?? {};
-  return { ...fromImportMeta, ...fromProcess, ...fromRuntime };
 }
 
 // `config.provider` is baked at build time; only the key is read per-request.
@@ -49,8 +40,7 @@ function resolveApiKey(locals: unknown): string | undefined {
 // must be handed to `ctx.waitUntil` or they are cancelled when the SSE stream
 // closes. No POSTHOG_KEY in the environment → no-op sink.
 function resolveTelemetry(locals: unknown) {
-  const ctx = (locals as { runtime?: { ctx?: { waitUntil?: (promise: Promise<unknown>) => void } } })
-    ?.runtime?.ctx;
+  const ctx = resolveCfContext(locals);
   const waitUntil = ctx?.waitUntil ? (promise: Promise<unknown>) => ctx.waitUntil!(promise) : undefined;
   return makeTelemetry(telemetryFromEnv(resolveEnv(locals), { waitUntil, provider }));
 }
