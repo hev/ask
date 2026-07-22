@@ -87,7 +87,13 @@ writing code.
 2. `make npm-binaries` to cross-compile the per-platform binary packages.
 3. `make check` and `pnpm digest:verify`.
 4. Dry-run the tarball: `pnpm --filter @hevmind/ask pack --dry-run`.
-5. Publish from `packages/ui`: `pnpm publish --access public`.
+5. Publish from `packages/ui`: `pnpm publish --access public`. **`pnpm`, never
+   `npm`.** The optional deps use `workspace:*`, and only pnpm rewrites that to
+   a pinned version on publish. `npm publish` uploads the literal string, and
+   every install of that version dies with `EUNSUPPORTEDPROTOCOL` — the package
+   is not partially broken, it is uninstallable. This ate 0.3.5. Verify after
+   publishing: `npm view @hevmind/ask@X.Y.Z optionalDependencies` must show
+   version numbers, not `workspace:*`.
 6. Tag and cut the GitHub release: `git tag vX.Y.Z && git push --tags`, then
    `gh release create vX.Y.Z`.
 7. Bump consumers (`site/`, `../layer/site`) to the new version.
