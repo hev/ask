@@ -18,19 +18,43 @@ type SourceRef struct {
 	Anchor  *string `json:"anchor"`
 }
 
+type VersionRef struct {
+	Subject string `json:"subject"`
+	Version string `json:"version"`
+	ChunkID string `json:"chunkId"`
+}
+
+type VersionDrift struct {
+	Subject  string
+	Old      string
+	New      string
+	Sections []string
+}
+
+type VersionConflict struct {
+	Version  string
+	Sections []string
+}
+
+type VersionContradiction struct {
+	Subject  string
+	Versions []VersionConflict
+}
+
 type DigestNode struct {
-	ID      string      `json:"id"`
-	Kind    string      `json:"kind"`
-	Title   string      `json:"title"`
-	Heading *string     `json:"heading"`
-	Group   *string     `json:"group"`
-	URL     string      `json:"url"`
-	Summary string      `json:"summary"`
-	Hash    string      `json:"hash,omitempty"`
-	Facts   []Fact      `json:"facts"`
-	Sources []SourceRef `json:"sources"`
-	Mode    string      `json:"mode"`
-	Terms   []string    `json:"terms"`
+	ID          string       `json:"id"`
+	Kind        string       `json:"kind"`
+	Title       string       `json:"title"`
+	Heading     *string      `json:"heading"`
+	Group       *string      `json:"group"`
+	URL         string       `json:"url"`
+	Summary     string       `json:"summary"`
+	Hash        string       `json:"hash,omitempty"`
+	Facts       []Fact       `json:"facts"`
+	Sources     []SourceRef  `json:"sources"`
+	Mode        string       `json:"mode"`
+	Terms       []string     `json:"terms"`
+	VersionRefs []VersionRef `json:"versionRefs,omitempty"`
 }
 
 type DigestEdge struct {

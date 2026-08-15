@@ -59,6 +59,7 @@ type BuildResult struct {
 	Path        string
 	ContentHash string
 	Chunks      int
+	Drift       []VersionDrift
 }
 
 func BuildCorpus(options BuildOptions) (CorpusBuild, error) {

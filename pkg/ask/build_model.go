@@ -90,10 +90,11 @@ func BuildDigest(options BuildDigestOptions) (BuildResult, error) {
 		emitted = mergeIncrementalDistillation(existing, emitted, changed)
 	}
 	digest := AssembleDigest(emitted, corpus)
+	drift := DiffVersionRefs(existing, digest)
 	if err := WriteDigest(outPath, digest); err != nil {
 		return BuildResult{}, err
 	}
-	return BuildResult{Status: "built", Path: outPath, ContentHash: corpus.ContentHash, Chunks: len(corpus.Chunks)}, nil
+	return BuildResult{Status: "built", Path: outPath, ContentHash: corpus.ContentHash, Chunks: len(corpus.Chunks), Drift: drift}, nil
 }
 
 func changedChunks(chunks []Chunk, existing Digest) []Chunk {

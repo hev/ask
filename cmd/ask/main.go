@@ -266,6 +266,9 @@ func runDigest(_ context.Context, opts options, args []string, stdout io.Writer)
 			return err
 		}
 		fmt.Fprintf(stdout, "[hev-ask] digest:%s %s (%d chunks)\n", result.Status, result.Path, result.Chunks)
+		for _, d := range result.Drift {
+			fmt.Fprintf(stdout, "[hev-ask] version drift: %s\n", askpkg.FormatVersionDrift(d))
+		}
 		return nil
 	case "verify":
 		buildOptions, rest, err = parseBuildFlags(buildOptions, rest)
@@ -514,6 +517,10 @@ func writeVerifyResult(w io.Writer, result askpkg.VerifyResult, strict bool) err
 	failed := false
 	for _, treeErr := range result.TreeErrors {
 		fmt.Fprintf(w, "[hev-ask] digest tree integrity: %s\n", treeErr)
+		failed = true
+	}
+	for _, c := range result.Contradictions {
+		fmt.Fprintf(w, "[hev-ask] version conflict %s: %s\n", c.Subject, askpkg.FormatVersionContradiction(c))
 		failed = true
 	}
 	for _, missing := range result.Missing {

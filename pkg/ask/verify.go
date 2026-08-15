@@ -16,11 +16,12 @@ type VerifyOptions struct {
 }
 
 type VerifyResult struct {
-	Checked    int
-	Missing    []MissingAnchor
-	Dropped    []DroppedLiteral
-	Uncovered  []string
-	TreeErrors []string
+	Checked         int
+	Missing         []MissingAnchor
+	Dropped         []DroppedLiteral
+	Uncovered       []string
+	TreeErrors      []string
+	Contradictions  []VersionContradiction
 }
 
 type MissingAnchor struct {
@@ -89,6 +90,10 @@ func VerifyAnchors(options VerifyOptions) (VerifyResult, error) {
 	dropped, uncovered := verifyFidelity(options.BuildOptions, corpus.Chunks)
 	result.Dropped = dropped
 	result.Uncovered = uncovered
+
+	if cDigest, cErr := LoadDigest(resolveSitePath(options.SiteRoot, options.DigestPath)); cErr == nil {
+		result.Contradictions = FindContradictions(cDigest)
+	}
 	return result, nil
 }
 

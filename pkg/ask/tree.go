@@ -159,18 +159,19 @@ func nodeFromTreeFile(rel string, doc FrontmatterDocument) DigestNode {
 		sources = []SourceRef{{ChunkID: id, URL: url, Anchor: anchor}}
 	}
 	return DigestNode{
-		ID:      id,
-		Kind:    "section",
-		Title:   stringField(doc.Data, "title", id),
-		Heading: heading,
-		Group:   group,
-		URL:     url,
-		Summary: summary,
-		Hash:    stringField(doc.Data, "hash", ""),
-		Facts:   factSliceField(doc.Data, "facts"),
-		Sources: sources,
-		Mode:    stringField(doc.Data, "mode", "agent-primary"),
-		Terms:   stringSliceField(doc.Data, "terms"),
+		ID:          id,
+		Kind:        "section",
+		Title:       stringField(doc.Data, "title", id),
+		Heading:     heading,
+		Group:       group,
+		URL:         url,
+		Summary:     summary,
+		Hash:        stringField(doc.Data, "hash", ""),
+		Facts:       factSliceField(doc.Data, "facts"),
+		Sources:     sources,
+		Mode:        stringField(doc.Data, "mode", "agent-primary"),
+		Terms:       stringSliceField(doc.Data, "terms"),
+		VersionRefs: versionRefSliceField(doc.Data, "versionRefs"),
 	}
 }
 
@@ -358,6 +359,9 @@ func renderSectionFile(node DigestNode, order int) string {
 		{"mode", node.Mode},
 		{"facts", node.Facts},
 		{"sources", node.Sources},
+	}
+	if len(node.VersionRefs) > 0 {
+		fields = append(fields, frontmatterField{"versionRefs", node.VersionRefs})
 	}
 	return markdownWithFrontmatter(fields, strings.TrimSpace(node.Summary))
 }
@@ -905,6 +909,31 @@ func factSliceField(data map[string]any, key string) []Fact {
 		out = append(out, Fact{
 			Kind:    stringField(obj, "kind", "value"),
 			Literal: literal,
+			ChunkID: stringField(obj, "chunkId", ""),
+		})
+	}
+	return out
+}
+
+func versionRefSliceField(data map[string]any, key string) []VersionRef {
+	raw, ok := data[key].([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]VersionRef, 0, len(raw))
+	for _, item := range raw {
+		obj, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		subject := stringField(obj, "subject", "")
+		version := stringField(obj, "version", "")
+		if subject == "" || version == "" {
+			continue
+		}
+		out = append(out, VersionRef{
+			Subject: subject,
+			Version: version,
 			ChunkID: stringField(obj, "chunkId", ""),
 		})
 	}
