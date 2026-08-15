@@ -345,6 +345,12 @@ func writeOverviewHuman(w io.Writer, overview Overview) {
 		fmt.Fprintf(w, "%s\n\n", overview.Context)
 	}
 	fmt.Fprintln(w, overview.Overview)
+	if len(overview.VersionRefs) > 0 {
+		fmt.Fprintln(w, "\nVersion references:")
+		for _, ref := range overview.VersionRefs {
+			fmt.Fprintf(w, "- %s (%s)\n", ref.Literal, ref.ChunkID)
+		}
+	}
 }
 
 func writeSectionHuman(w io.Writer, node DigestNode) {

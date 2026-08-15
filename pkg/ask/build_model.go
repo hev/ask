@@ -49,11 +49,11 @@ func BuildDigest(options BuildDigestOptions) (BuildResult, error) {
 	}
 	outPath := resolveSitePath(options.SiteRoot, options.DigestPath)
 	existing, err := LoadDigest(outPath)
-	if err == nil && existing.Version == 2 && existing.ContentHash == corpus.ContentHash && len(existing.Nodes) > 0 {
+	if err == nil && existing.Version == 3 && existing.ContentHash == corpus.ContentHash && len(existing.Nodes) > 0 {
 		return BuildResult{Status: "skipped", Path: outPath, ContentHash: corpus.ContentHash, Chunks: len(corpus.Chunks)}, nil
 	}
 	changed := corpus.Chunks
-	if err == nil && existing.Version == 2 && len(existing.Nodes) > 0 {
+	if err == nil && existing.Version == 3 && len(existing.Nodes) > 0 {
 		changed = changedChunks(corpus.Chunks, existing)
 		if len(changed) == 0 {
 			refreshed := digestWithContentHash(existing, corpus.ContentHash)

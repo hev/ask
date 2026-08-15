@@ -362,7 +362,7 @@ func WriteCorpusShards(options BuildOptions, shardsDir string, shardBytes int) (
 		return CorpusShardsResult{}, err
 	}
 	committed, err := LoadDigest(resolveSitePath(options.SiteRoot, options.DigestPath))
-	upToDate := err == nil && committed.Version == 2 && committed.ContentHash == corpus.ContentHash && len(committed.Nodes) > 0
+	upToDate := err == nil && committed.Version == 3 && committed.ContentHash == corpus.ContentHash && len(committed.Nodes) > 0
 
 	dir := resolveSitePath(options.SiteRoot, shardsDir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {

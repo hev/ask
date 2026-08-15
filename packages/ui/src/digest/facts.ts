@@ -1,5 +1,5 @@
 import { tokenize } from '../search/chunk.ts';
-import type { Fact } from './schema.ts';
+import type { Fact, VersionRef } from './schema.ts';
 
 const FENCE_RE = /```[a-zA-Z0-9]*\n([\s\S]*?)```/g;
 const INLINE_CODE_RE = /`([^`\n]+)`/g;

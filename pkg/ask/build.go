@@ -112,7 +112,7 @@ func WriteCorpusInput(options BuildOptions, outPath string) (string, bool, int, 
 		return "", false, 0, err
 	}
 	committed, err := LoadDigest(resolveSitePath(options.SiteRoot, options.DigestPath))
-	upToDate := err == nil && committed.Version == 2 && committed.ContentHash == corpus.ContentHash && len(committed.Nodes) > 0
+	upToDate := err == nil && committed.Version == 3 && committed.ContentHash == corpus.ContentHash && len(committed.Nodes) > 0
 	payload := DigestInput{
 		ContentHash: corpus.ContentHash,
 		DigestPath:  options.DigestPath,
@@ -163,7 +163,7 @@ func AssembleDigest(emitted EmittedDistillation, corpus CorpusBuild) Digest {
 		summaryByID[entry.ID] = entry.Summary
 	}
 	digest := Digest{
-		Version:     2,
+		Version:     3,
 		GeneratedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
 		ContentHash: corpus.ContentHash,
 		Context:     emitted.Context,
@@ -173,6 +173,20 @@ func AssembleDigest(emitted EmittedDistillation, corpus CorpusBuild) Digest {
 		Nodes:       BuildNodes(corpus.Chunks, summaryByID),
 		Edges:       []DigestEdge{},
 	}
+	seenLiterals := map[string]bool{}
+	var versionRefs []VersionRef
+	for _, node := range digest.Nodes {
+		for _, ref := range node.VersionRefs {
+			if !seenLiterals[ref.Literal] {
+				seenLiterals[ref.Literal] = true
+				versionRefs = append(versionRefs, ref)
+			}
+		}
+	}
+	if versionRefs == nil {
+		versionRefs = []VersionRef{}
+	}
+	digest.VersionRefs = versionRefs
 	normalizeDigest(&digest)
 	return digest
 }
@@ -205,18 +219,19 @@ func BuildNodes(chunks []Chunk, summaryByID map[string]string) []DigestNode {
 			anchor = &value
 		}
 		nodes = append(nodes, DigestNode{
-			ID:      chunk.ID,
-			Kind:    "section",
-			Title:   chunk.DocTitle,
-			Heading: heading,
-			Group:   group,
-			URL:     chunk.URL,
-			Summary: summary,
-			Hash:    SectionHash(chunk),
-			Facts:   facts,
-			Sources: []SourceRef{{ChunkID: chunk.ID, URL: chunk.URL, Anchor: anchor}},
-			Mode:    ClassifyMode(chunk.Group),
-			Terms:   DistinctiveTokens(strings.Join([]string{chunk.Heading, summary, strings.Join(factText, " "), chunk.Text}, " "), 40),
+			ID:          chunk.ID,
+			Kind:        "section",
+			Title:       chunk.DocTitle,
+			Heading:     heading,
+			Group:       group,
+			URL:         chunk.URL,
+			Summary:     summary,
+			Hash:        SectionHash(chunk),
+			Facts:       facts,
+			Sources:     []SourceRef{{ChunkID: chunk.ID, URL: chunk.URL, Anchor: anchor}},
+			Mode:        ClassifyMode(chunk.Group),
+			Terms:       DistinctiveTokens(strings.Join([]string{chunk.Heading, summary, strings.Join(factText, " "), chunk.Text}, " "), 40),
+			VersionRefs: ExtractVersionRefs(chunk.ID, chunk.Raw),
 		})
 	}
 	sort.Slice(nodes, func(i, j int) bool { return nodes[i].ID < nodes[j].ID })

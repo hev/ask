@@ -4,6 +4,12 @@ export interface GlossaryEntry {
   definition: string;
 }
 
+/** A version string reference extracted from a source section (e.g. "v1.2.3"). */
+export interface VersionRef {
+  literal: string;
+  chunkId: string;
+}
+
 /** A byte-verbatim literal lifted from a source section (a flag, code span, value). */
 export interface Fact {
   kind: 'flag' | 'code' | 'value' | 'default' | 'key';
@@ -49,6 +55,8 @@ export interface DigestNode {
   mode: 'agent-primary' | 'source-primary';
   /** Distinctive tokens used for the render-time link-support check. */
   terms: string[];
+  /** Version strings extracted from this section (e.g. "v1.2.3"). */
+  versionRefs: VersionRef[];
 }
 
 /** Reserved for the deferred edge layer; ships empty in this version. */
@@ -59,7 +67,7 @@ export interface DigestEdge {
 }
 
 export interface Digest {
-  version: 2;
+  version: 2 | 3;
   generatedAt: string;
   contentHash: string;
   /** Compact prose orientation. Degradation fallback when `nodes` is empty. */
@@ -71,6 +79,8 @@ export interface Digest {
   suggestions: string[];
   nodes: DigestNode[];
   edges: DigestEdge[];
+  /** Corpus-wide version references, deduplicated by literal. */
+  versionRefs: VersionRef[];
 }
 
 export const EMPTY_DIGEST: Digest = {
@@ -83,6 +93,7 @@ export const EMPTY_DIGEST: Digest = {
   suggestions: [],
   nodes: [],
   edges: [],
+  versionRefs: [],
 };
 
 const FACT_KINDS = new Set<Fact['kind']>(['flag', 'code', 'value', 'default', 'key']);
@@ -92,10 +103,11 @@ const NODE_MODES = new Set<DigestNode['mode']>(['agent-primary', 'source-primary
  * Coerces unknown JSON into a Digest. A v1 artifact (`{context,
  * glossary}` with no `nodes`) degrades cleanly to an empty-node v2 digest, so the
  * runtime falls back to keyword/legacy behavior rather than hard-failing.
+ * A v2 digest loads cleanly with empty `versionRefs`.
  */
 export function normalizeDigest(value: unknown): Digest {
   if (!value || typeof value !== 'object') return EMPTY_DIGEST;
-  const maybe = value as Partial<Digest>;
+  const maybe = value as Partial<Digest> & { versionRefs?: unknown };
   const glossary = Array.isArray(maybe.glossary)
     ? maybe.glossary
         .map((entry) => normalizeGlossaryEntry(entry))
@@ -107,9 +119,12 @@ export function normalizeDigest(value: unknown): Digest {
   const edges = Array.isArray(maybe.edges)
     ? maybe.edges.map((edge) => normalizeEdge(edge)).filter((edge): edge is DigestEdge => edge !== null)
     : [];
+  const versionRefs = Array.isArray(maybe.versionRefs)
+    ? maybe.versionRefs.map(normalizeVersionRef).filter((ref): ref is VersionRef => ref !== null)
+    : [];
 
   return {
-    version: 2,
+    version: maybe.version === 3 ? 3 : 2,
     generatedAt: typeof maybe.generatedAt === 'string' ? maybe.generatedAt : '',
     contentHash: typeof maybe.contentHash === 'string' ? maybe.contentHash : '',
     context: typeof maybe.context === 'string' ? maybe.context : '',
@@ -120,6 +135,7 @@ export function normalizeDigest(value: unknown): Digest {
       : [],
     nodes,
     edges,
+    versionRefs,
   };
 }
 
@@ -136,7 +152,7 @@ function normalizeGlossaryEntry(value: unknown): GlossaryEntry | null {
 
 function normalizeNode(value: unknown): DigestNode | null {
   if (!value || typeof value !== 'object') return null;
-  const maybe = value as Partial<DigestNode>;
+  const maybe = value as Partial<DigestNode> & { versionRefs?: unknown };
   if (typeof maybe.id !== 'string' || typeof maybe.url !== 'string') return null;
   return {
     id: maybe.id,
@@ -155,6 +171,19 @@ function normalizeNode(value: unknown): DigestNode | null {
       : [],
     mode: maybe.mode && NODE_MODES.has(maybe.mode) ? maybe.mode : 'agent-primary',
     terms: Array.isArray(maybe.terms) ? maybe.terms.filter((term): term is string => typeof term === 'string') : [],
+    versionRefs: Array.isArray(maybe.versionRefs)
+      ? maybe.versionRefs.map(normalizeVersionRef).filter((ref): ref is VersionRef => ref !== null)
+      : [],
+  };
+}
+
+function normalizeVersionRef(value: unknown): VersionRef | null {
+  if (!value || typeof value !== 'object') return null;
+  const maybe = value as Partial<VersionRef>;
+  if (typeof maybe.literal !== 'string' || !maybe.literal) return null;
+  return {
+    literal: maybe.literal,
+    chunkId: typeof maybe.chunkId === 'string' ? maybe.chunkId : '',
   };
 }
 

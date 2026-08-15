@@ -6,8 +6,9 @@ import (
 )
 
 type Overview struct {
-	Overview string `json:"overview"`
-	Context  string `json:"context"`
+	Overview    string       `json:"overview"`
+	Context     string       `json:"context"`
+	VersionRefs []VersionRef `json:"versionRefs"`
 }
 
 func ListGlossary(digest Digest) []GlossaryEntry {
@@ -70,7 +71,11 @@ func GetSection(digest Digest, id string) (DigestNode, bool) {
 }
 
 func GetOverview(digest Digest) Overview {
-	return Overview{Overview: digest.Overview, Context: digest.Context}
+	refs := digest.VersionRefs
+	if refs == nil {
+		refs = []VersionRef{}
+	}
+	return Overview{Overview: digest.Overview, Context: digest.Context, VersionRefs: refs}
 }
 
 func decodeValue(value string) string {

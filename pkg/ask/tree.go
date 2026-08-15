@@ -86,6 +86,7 @@ func loadDigestTreeFS(fsys fs.FS, root string) (Digest, error) {
 		Context:     context,
 		Overview:    overview,
 		Suggestions: stringSliceField(metaDoc.Data, "suggestions"),
+		VersionRefs: versionRefSliceField(metaDoc.Data, "versionRefs"),
 		Glossary:    []GlossaryEntry{},
 		Nodes:       []DigestNode{},
 		Edges:       []DigestEdge{},
@@ -159,18 +160,19 @@ func nodeFromTreeFile(rel string, doc FrontmatterDocument) DigestNode {
 		sources = []SourceRef{{ChunkID: id, URL: url, Anchor: anchor}}
 	}
 	return DigestNode{
-		ID:      id,
-		Kind:    "section",
-		Title:   stringField(doc.Data, "title", id),
-		Heading: heading,
-		Group:   group,
-		URL:     url,
-		Summary: summary,
-		Hash:    stringField(doc.Data, "hash", ""),
-		Facts:   factSliceField(doc.Data, "facts"),
-		Sources: sources,
-		Mode:    stringField(doc.Data, "mode", "agent-primary"),
-		Terms:   stringSliceField(doc.Data, "terms"),
+		ID:          id,
+		Kind:        "section",
+		Title:       stringField(doc.Data, "title", id),
+		Heading:     heading,
+		Group:       group,
+		URL:         url,
+		Summary:     summary,
+		Hash:        stringField(doc.Data, "hash", ""),
+		Facts:       factSliceField(doc.Data, "facts"),
+		Sources:     sources,
+		Mode:        stringField(doc.Data, "mode", "agent-primary"),
+		Terms:       stringSliceField(doc.Data, "terms"),
+		VersionRefs: versionRefSliceField(doc.Data, "versionRefs"),
 	}
 }
 
@@ -327,6 +329,7 @@ func renderDigestMetaFile(digest Digest) string {
 		{"generatedAt", firstNonEmpty(digest.GeneratedAt, time.Now().UTC().Format("2006-01-02T15:04:05.000Z"))},
 		{"contentHash", digest.ContentHash},
 		{"suggestions", digest.Suggestions},
+		{"versionRefs", digest.VersionRefs},
 	}
 	body := strings.TrimSpace("## Context\n\n" + strings.TrimSpace(digest.Context) + metaOverviewHeading + strings.TrimSpace(digest.Overview))
 	return markdownWithFrontmatter(fields, body)
@@ -358,6 +361,7 @@ func renderSectionFile(node DigestNode, order int) string {
 		{"mode", node.Mode},
 		{"facts", node.Facts},
 		{"sources", node.Sources},
+		{"versionRefs", node.VersionRefs},
 	}
 	return markdownWithFrontmatter(fields, strings.TrimSpace(node.Summary))
 }
@@ -904,6 +908,29 @@ func factSliceField(data map[string]any, key string) []Fact {
 		}
 		out = append(out, Fact{
 			Kind:    stringField(obj, "kind", "value"),
+			Literal: literal,
+			ChunkID: stringField(obj, "chunkId", ""),
+		})
+	}
+	return out
+}
+
+func versionRefSliceField(data map[string]any, key string) []VersionRef {
+	raw, ok := data[key].([]any)
+	if !ok {
+		return []VersionRef{}
+	}
+	out := make([]VersionRef, 0, len(raw))
+	for _, item := range raw {
+		obj, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		literal := stringField(obj, "literal", "")
+		if literal == "" {
+			continue
+		}
+		out = append(out, VersionRef{
 			Literal: literal,
 			ChunkID: stringField(obj, "chunkId", ""),
 		})

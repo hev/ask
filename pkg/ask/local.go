@@ -55,6 +55,9 @@ func normalizeDigest(digest *Digest) {
 	if digest.Edges == nil {
 		digest.Edges = []DigestEdge{}
 	}
+	if digest.VersionRefs == nil {
+		digest.VersionRefs = []VersionRef{}
+	}
 	for i := range digest.Glossary {
 		if digest.Glossary[i].Aliases == nil {
 			digest.Glossary[i].Aliases = []string{}
@@ -76,6 +79,9 @@ func normalizeDigest(digest *Digest) {
 		}
 		if node.Mode == "" {
 			node.Mode = "agent-primary"
+		}
+		if node.VersionRefs == nil {
+			node.VersionRefs = []VersionRef{}
 		}
 	}
 }

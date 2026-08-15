@@ -6,6 +6,11 @@ type GlossaryEntry struct {
 	Definition string   `json:"definition"`
 }
 
+type VersionRef struct {
+	Literal string `json:"literal"`
+	ChunkID string `json:"chunkId"`
+}
+
 type Fact struct {
 	Kind    string `json:"kind"`
 	Literal string `json:"literal"`
@@ -19,18 +24,19 @@ type SourceRef struct {
 }
 
 type DigestNode struct {
-	ID      string      `json:"id"`
-	Kind    string      `json:"kind"`
-	Title   string      `json:"title"`
-	Heading *string     `json:"heading"`
-	Group   *string     `json:"group"`
-	URL     string      `json:"url"`
-	Summary string      `json:"summary"`
-	Hash    string      `json:"hash,omitempty"`
-	Facts   []Fact      `json:"facts"`
-	Sources []SourceRef `json:"sources"`
-	Mode    string      `json:"mode"`
-	Terms   []string    `json:"terms"`
+	ID          string       `json:"id"`
+	Kind        string       `json:"kind"`
+	Title       string       `json:"title"`
+	Heading     *string      `json:"heading"`
+	Group       *string      `json:"group"`
+	URL         string       `json:"url"`
+	Summary     string       `json:"summary"`
+	Hash        string       `json:"hash,omitempty"`
+	Facts       []Fact       `json:"facts"`
+	Sources     []SourceRef  `json:"sources"`
+	Mode        string       `json:"mode"`
+	Terms       []string     `json:"terms"`
+	VersionRefs []VersionRef `json:"versionRefs"`
 }
 
 type DigestEdge struct {
@@ -49,6 +55,7 @@ type Digest struct {
 	Suggestions []string        `json:"suggestions"`
 	Nodes       []DigestNode    `json:"nodes"`
 	Edges       []DigestEdge    `json:"edges"`
+	VersionRefs []VersionRef    `json:"versionRefs"`
 }
 
 type SectionSummary struct {

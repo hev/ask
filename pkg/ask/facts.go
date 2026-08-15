@@ -58,6 +58,25 @@ func ExtractFacts(chunkID string, raw string) []Fact {
 	return facts
 }
 
+func ExtractVersionRefs(chunkID string, raw string) []VersionRef {
+	rest := fenceRE.ReplaceAllString(raw, " ")
+	bare := inlineCodeFRE.ReplaceAllString(rest, " ")
+	seen := map[string]bool{}
+	var refs []VersionRef
+	for _, match := range versionRE.FindAllString(bare, -1) {
+		value := strings.TrimSpace(match)
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		refs = append(refs, VersionRef{Literal: value, ChunkID: chunkID})
+	}
+	if refs == nil {
+		return []VersionRef{}
+	}
+	return refs
+}
+
 func ClassifyMode(group string) string {
 	if regexp.MustCompile(`(?i)reference|api`).MatchString(group) {
 		return "source-primary"
