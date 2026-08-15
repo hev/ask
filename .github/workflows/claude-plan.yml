@@ -1,0 +1,206 @@
+# Synced to target repos by sync-workflow.yml.
+# All pipeline logic lives in the runner image (ghcr.io/builddownai/ai-implement-runner).
+# Do not edit in target repos.
+#
+# Required secrets:
+#   AI_IMPLEMENT_APP_ID      - GitHub App numeric ID
+#   AI_IMPLEMENT_PRIVATE_KEY - GitHub App PEM private key
+#   ANTHROPIC_API_KEY        - Anthropic API key
+#   CLAUDE_CODE_OAUTH_TOKEN  - Claude Code OAuth token (preferred over API key)
+#
+# Additional secret (Bedrock provider):
+#   AWS_BEDROCK_ROLE_ARN     - IAM role ARN trusted to GitHub OIDC; needs bedrock:InvokeModel
+#
+# Optional repository or organization variables:
+#   AI_IMPLEMENT_RUNNER_IMAGE                    - Default runner image for this repo/org.
+#   AI_IMPLEMENT_ALLOWED_RUNNER_IMAGE_PREFIXES   - Extra image prefixes allowed in addition to ghcr.io/builddownai/ and the repo owner's own ghcr.io/<owner>/ namespace (auto-trusted).
+#
+# Private runner images: the plan job pulls the runner image as its container.
+# When that image is private on GHCR the pull is authenticated with GITHUB_TOKEN via
+# the container `credentials:` block (hence `packages: read` in the permissions block).
+# The token can only read private packages owned by THIS repo's org, so a private
+# runner image must live in the same org; a different-org private image needs a PAT
+# swapped into `credentials.password`. Fly/local pull anonymously, so private runner
+# images are only usable in this GitHub Actions execution mode.
+
+name: Claude AI Planning
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_config:
+        description: "base64 JSON RunConfig envelope — see docs/workflow-envelope.md"
+        required: true
+        type: string
+      runner_image:
+        description: "Override the runner image for this run (must match ghcr.io/builddownai/*, the repo owner's ghcr.io/<owner>/*, or AI_IMPLEMENT_ALLOWED_RUNNER_IMAGE_PREFIXES)"
+        required: false
+        type: string
+        default: ""
+      job_timeout_minutes:
+        description: "Per-project job timeout in minutes, must be a positive integer (empty = 30)"
+        required: false
+        type: string
+        default: ""
+      provider:
+        description: "Claude provider: 'anthropic' (default) or 'bedrock'"
+        required: false
+        type: string
+        default: "anthropic"
+      aws_region:
+        description: "AWS region for Bedrock (required when provider=bedrock)"
+        required: false
+        type: string
+        default: ""
+      run_token:
+        description: "HMAC bearer token authorizing the result POST; empty skips callback"
+        required: false
+        type: string
+        default: ""
+      run_progress_token:
+        description: "HMAC bearer token authorizing progress POSTs; empty skips progress callback"
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  id-token: write
+  packages: read
+
+jobs:
+  validate-runner-image:
+    runs-on: ubuntu-latest
+    outputs:
+      runner_image: ${{ steps.resolve.outputs.runner_image }}
+    steps:
+      - name: Resolve and validate runner image
+        id: resolve
+        env:
+          REQUESTED_RUNNER_IMAGE: ${{ inputs.runner_image }}
+          CONFIGURED_RUNNER_IMAGE: ${{ vars.AI_IMPLEMENT_RUNNER_IMAGE }}
+          EXTRA_ALLOWED_PREFIXES: ${{ vars.AI_IMPLEMENT_ALLOWED_RUNNER_IMAGE_PREFIXES }}
+        run: |
+          set -euo pipefail
+
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          if [ -z "$owner" ]; then
+            echo "::error::GITHUB_REPOSITORY_OWNER is empty; cannot derive the owner image prefix." >&2
+            exit 1
+          fi
+
+          runner_image="${REQUESTED_RUNNER_IMAGE:-}"
+          if [ -z "$runner_image" ]; then
+            runner_image="${CONFIGURED_RUNNER_IMAGE:-}"
+          fi
+          if [ -z "$runner_image" ]; then
+            runner_image="ghcr.io/builddownai/ai-implement-runner:latest"
+          fi
+
+          case "$runner_image" in
+            *[!A-Za-z0-9._:/@-]*)
+              echo "::error::runner_image \"$runner_image\" contains invalid characters for a container image reference." >&2
+              exit 1
+              ;;
+          esac
+
+          allowed_prefixes="ghcr.io/builddownai/,ghcr.io/${owner}/"
+          if [ -n "${EXTRA_ALLOWED_PREFIXES:-}" ]; then
+            allowed_prefixes="${allowed_prefixes},${EXTRA_ALLOWED_PREFIXES}"
+          fi
+
+          allowed=false
+          IFS=',' read -ra prefixes <<< "$allowed_prefixes"
+          for raw_prefix in "${prefixes[@]}"; do
+            prefix="$(echo "$raw_prefix" | xargs)"
+            [ -z "$prefix" ] && continue
+            # Literal prefix match — quote "$prefix" so glob metacharacters in an
+            # operator-supplied AI_IMPLEMENT_ALLOWED_RUNNER_IMAGE_PREFIXES can't widen it.
+            if [[ "$runner_image" == "$prefix"* ]]; then
+              allowed=true
+              break
+            fi
+          done
+
+          if [ "$allowed" != "true" ]; then
+            echo "::error::runner_image \"$runner_image\" is not allowed." >&2
+            echo "::error::Allowed prefixes:" >&2
+            for raw_prefix in "${prefixes[@]}"; do
+              prefix="$(echo "$raw_prefix" | xargs)"
+              [ -z "$prefix" ] && continue
+              echo "::error::- $prefix" >&2
+            done
+            echo "::error::To allow this image, set the repository or organization variable AI_IMPLEMENT_ALLOWED_RUNNER_IMAGE_PREFIXES=<prefix>." >&2
+            echo "::error::Example: AI_IMPLEMENT_ALLOWED_RUNNER_IMAGE_PREFIXES=ghcr.io/acme/" >&2
+            echo "::error::Use comma-separated prefixes for multiple registries or namespaces." >&2
+            exit 1
+          fi
+
+          echo "runner_image=$runner_image" >> "$GITHUB_OUTPUT"
+
+  plan:
+    needs: validate-runner-image
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.job_timeout_minutes && fromJSON(inputs.job_timeout_minutes) || 30 }}
+    container:
+      image: ${{ needs.validate-runner-image.outputs.runner_image }}
+      # Authenticate the image pull so a private GHCR runner image owned by this
+      # repo's org can be pulled (packages: read scopes GITHUB_TOKEN for this).
+      # Harmless for the public default image. Cross-org private images need a PAT
+      # swapped in for the password — see the header comment.
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349
+        with:
+          app-id: ${{ secrets.AI_IMPLEMENT_APP_ID }}
+          private-key: ${{ secrets.AI_IMPLEMENT_PRIVATE_KEY }}
+
+      - name: Validate Bedrock inputs
+        if: inputs.provider == 'bedrock'
+        env:
+          AWS_REGION: ${{ inputs.aws_region }}
+          ROLE_ARN: ${{ secrets.AWS_BEDROCK_ROLE_ARN }}
+        run: |
+          if [ -z "$AWS_REGION" ]; then
+            echo "::error::provider=bedrock but aws_region dispatch input is empty."
+            echo "::error::Set awsRegion on this team's mapping in the orchestrator admin UI."
+            exit 1
+          fi
+          if [ -z "$ROLE_ARN" ]; then
+            echo "::error::provider=bedrock but AWS_BEDROCK_ROLE_ARN repo secret is not set."
+            echo "::error::Add the IAM role ARN trusted to GitHub OIDC with bedrock:InvokeModel permission."
+            exit 1
+          fi
+
+      - name: Configure AWS credentials (Bedrock)
+        if: inputs.provider == 'bedrock'
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c
+        with:
+          role-to-assume: ${{ secrets.AWS_BEDROCK_ROLE_ARN }}
+          aws-region: ${{ inputs.aws_region }}
+          role-session-duration: 14400
+
+      - name: Mask runner callback tokens
+        run: |
+          if [ -n "${{ inputs.run_token }}" ]; then
+            echo "::add-mask::${{ inputs.run_token }}"
+          fi
+          if [ -n "${{ inputs.run_progress_token }}" ]; then
+            echo "::add-mask::${{ inputs.run_progress_token }}"
+          fi
+
+      - name: Run planning
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          RUNNER_PHASE: planning
+          AI_IMPLEMENT_RUN_CONFIG: ${{ inputs.run_config }}
+          AI_IMPLEMENT_LOG_LEVEL: ${{ vars.AI_IMPLEMENT_LOG_LEVEL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          RUN_TOKEN: ${{ inputs.run_token }}
+          RUN_PROGRESS_TOKEN: ${{ inputs.run_progress_token }}
+        run: /opt/ai-implement/entrypoint.sh
