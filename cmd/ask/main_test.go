@@ -45,6 +45,34 @@ func writeTestDigest(t *testing.T) string {
 	return path
 }
 
+func TestRunVersion(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if err := run(context.Background(), []string{"--version"}, &stdout, &stderr); err != nil {
+		t.Fatalf("--version failed: %v", err)
+	}
+	got := strings.TrimSpace(stdout.String())
+	if got == "" {
+		t.Fatal("expected version output, got empty string")
+	}
+	if stderr.String() != "" {
+		t.Fatalf("expected no stderr, got: %s", stderr.String())
+	}
+}
+
+func TestRunVersionShort(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if err := run(context.Background(), []string{"-v"}, &stdout, &stderr); err != nil {
+		t.Fatalf("-v failed: %v", err)
+	}
+	got := strings.TrimSpace(stdout.String())
+	if got == "" {
+		t.Fatal("expected version output, got empty string")
+	}
+	if stderr.String() != "" {
+		t.Fatalf("expected no stderr, got: %s", stderr.String())
+	}
+}
+
 func TestRunCatGlossaryAliasJSON(t *testing.T) {
 	path := writeTestDigest(t)
 	var stdout, stderr bytes.Buffer

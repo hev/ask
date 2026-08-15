@@ -12,6 +12,8 @@ import (
 	askpkg "github.com/hev/ask/pkg/ask"
 )
 
+var version = "dev"
+
 type options struct {
 	digestPath        string
 	endpoint          string
@@ -27,6 +29,7 @@ type options struct {
 	digestModel       string
 	provider          string
 	providerURL       string
+	showVersion       bool
 }
 
 func main() {
@@ -40,6 +43,10 @@ func run(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer)
 	opts, commandArgs, err := parseGlobalFlags(args)
 	if err != nil {
 		return err
+	}
+	if opts.showVersion {
+		fmt.Fprintln(stdout, version)
+		return nil
 	}
 	if len(commandArgs) == 0 {
 		usage(stderr)
@@ -386,6 +393,8 @@ func parseGlobalFlags(args []string) (options, []string, error) {
 			opts.skipBuild = true
 		case "--strict":
 			opts.strict = true
+		case "--version", "-v":
+			opts.showVersion = true
 		default:
 			rest = append(rest, arg)
 		}

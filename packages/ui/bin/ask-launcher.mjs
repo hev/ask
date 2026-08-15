@@ -7,6 +7,13 @@ import { fileURLToPath } from 'node:url';
 const require = createRequire(import.meta.url);
 
 export async function runAsk(args, options = {}) {
+  if (args.includes('--version') || args.includes('-v')) {
+    const pkgPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'package.json');
+    const { version } = JSON.parse(readFileSync(pkgPath, 'utf8'));
+    process.stdout.write(version + '\n');
+    return 0;
+  }
+
   const target = resolveAskTarget();
   if (!target) {
     const platform = `${process.platform}/${process.arch}`;
