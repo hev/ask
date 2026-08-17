@@ -1,0 +1,58 @@
+---
+// Exists so Cloudflare Pages stops serving index.html with a 200 for every
+// unmatched path. Without this, /robots.txt and /sitemap-index.xml returned
+// the homepage and a success code — an agent probing the site could not tell
+// a real page from a wrong guess, which is a bad failure mode for a project
+// whose whole point is being readable by one.
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="404 — hev ask" description="Page not found.">
+	<main>
+		<p class="kicker">// 404</p>
+		<h1>No section at that path.</h1>
+		<p class="lede">
+			That page doesn't exist, or it moved. Press <kbd>⌘K</kbd> to search the
+			docs, or start from the <a href="/docs">docs index</a>. Agents: the
+			corpus is at <a href="/llms.txt">/llms.txt</a> and
+			<a href="/llms-full.txt">/llms-full.txt</a>, or read it as a directory
+			over <a href="/docs/api/cli">the ask CLI</a>.
+		</p>
+	</main>
+</Base>
+
+<style>
+	main {
+		max-width: 46rem;
+		margin: 0 auto;
+		padding: 6rem 1.5rem 8rem;
+	}
+
+	.kicker {
+		font-family: var(--mono, ui-monospace, monospace);
+		font-size: 0.8rem;
+		color: var(--muted);
+		margin: 0 0 1rem;
+	}
+
+	h1 {
+		font-size: clamp(1.7rem, 4vw, 2.4rem);
+		letter-spacing: -0.02em;
+		margin: 0 0 1rem;
+	}
+
+	.lede {
+		color: var(--muted);
+		font-size: 1.05rem;
+		line-height: 1.6;
+		max-width: 34rem;
+	}
+
+	kbd {
+		font-family: var(--mono, ui-monospace, monospace);
+		font-size: 0.85em;
+		border: 1px solid var(--line, currentColor);
+		border-radius: 4px;
+		padding: 0.05em 0.35em;
+	}
+</style>

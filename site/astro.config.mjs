@@ -1,5 +1,6 @@
 import { defineConfig } from "astro/config";
 import mdx from "@astrojs/mdx";
+import sitemap from "@astrojs/sitemap";
 import cloudflare from "@astrojs/cloudflare";
 import hevAsk from "@hevmind/ask";
 
@@ -16,6 +17,9 @@ export default defineConfig({
 	adapter: cloudflare({ platformProxy: { enabled: true } }),
 	integrations: [
 		mdx(),
+		// Every page here is public, so no filter. robots.txt points at
+		// /sitemap-index.xml and this is what makes that true.
+		sitemap(),
 		hevAsk({ collections: ["docs"], basePath: "/docs/" }),
 	],
 	markdown: {
