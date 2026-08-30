@@ -20,6 +20,11 @@ const {
 	body,
 	backHref = "/decks",
 } = Astro.props;
+
+// A deck skips Base, so it needs its own canonical — the same deck is served
+// at hev-ask.pages.dev and www, and one deck ranking against itself on three
+// hostnames helps nobody.
+const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
 
 <!doctype html>
@@ -29,6 +34,7 @@ const {
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>{title}</title>
 		<meta name="description" content={description} />
+		<link rel="canonical" href={canonical} />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 		<link

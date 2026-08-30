@@ -16,6 +16,13 @@ const {
 	description = "hev ask is a ⌘K search overlay for Astro docs sites, built on a committed ask digest: instant keyword search over heading anchors, plus an optional Claude-powered answer loop on Enter.",
 	current = "product",
 } = Astro.props;
+
+// Every page states its own address on hevask.com. The same build answers on
+// hev-ask.pages.dev and www, and without this each one is a free-standing
+// duplicate competing with the real thing in the index. (askhev.com already
+// 301s here, which is why it needs nothing.) Built from Astro.site, so it
+// stays correct wherever the deploy is served from.
+const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
 
 <!doctype html>
@@ -25,6 +32,7 @@ const {
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>{title}</title>
 		<meta name="description" content={description} />
+		<link rel="canonical" href={canonical} />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 		<link
