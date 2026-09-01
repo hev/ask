@@ -1,0 +1,196 @@
+# Quick start
+
+Add search to an existing Astro 5 docs site whose content lives in a collection
+(say `src/content/docs`) in about five minutes. You'll get **instant keyword
+search** working first, with no key and nothing to host. Then add a
+**provider [API key](api/configuration.md#choosing-a-provider)** on the server and the same overlay also runs the
+**agentic answer loop** on Enter; if you only want the search UI, skip the key.
+
+> **on Docusaurus, VitePress, or MkDocs?**
+>
+> This quick start is the **Astro** integration. On any other framework you drop in
+> the same overlay as a `<script>` tag and, for agentic answers, point it at a
+> hosted endpoint — no Astro required. See
+> [the drop-in overlay](api/search-overlay.md#the-overlay-on-other-frameworks)
+> for the step-by-step on yours.
+
+## Prerequisites
+
+- **Astro 5** with at least one [content collection](https://docs.astro.build/en/guides/content-collections/).
+- A **server or hybrid adapter** (Node, Cloudflare, Vercel, …) — the `/api/ask`
+  route renders on demand, so a fully static build can't serve it.
+- A **provider API key** to enable agentic search. Keyword search needs no
+  key. (OpenAI and OpenRouter work too, via the
+  [`provider` option](api/configuration.md#choosing-a-provider); this guide
+  uses the Anthropic default.)
+
+## Set up keyword search
+
+### 1. Install
+
+Once published, install from npm:
+
+```sh
+pnpm add @hevmind/ask
+```
+
+Until then, consume it straight from the package subdirectory on GitHub:
+
+```sh
+pnpm add "git+ssh://git@github.com/hev/ask.git#main&path:/packages/ui"
+```
+
+### 2. Register the integration
+
+```js
+// astro.config.mjs
+
+export default defineConfig({
+  integrations: [
+    hevAsk({
+      collections: ["docs"],   // your content collection name(s)
+      basePath: "/docs/",      // slug → URL prefix: basePath + slug
+    }),
+  ],
+});
+```
+
+`collections` is the one option you must set; everything else has a default —
+see the [configuration reference](api/configuration.md).
+
+### 3. Add a server adapter
+
+The `/api/ask` route renders on demand. Add whichever adapter matches your host
+(existing pages stay prerendered — only `/api/ask` runs as a function); this
+site uses Cloudflare:
+
+```js
+// astro.config.mjs
+
+export default defineConfig({
+  adapter: cloudflare({ platformProxy: { enabled: true } }),
+  // ...integrations as above
+});
+```
+
+### 4. Render the overlay
+
+Add the component once somewhere global, like your base layout. **Any element
+with `data-hev-ask-open` opens the palette**, and `⌘K` is bound automatically.
+
+```astro
+---
+// src/layouts/Base.astro
+---
+<button type="button" data-hev-ask-open>
+  Search <kbd>⌘K</kbd>
+</button>
+
+<slot />
+
+<SearchOverlay />
+```
+
+Keyword search now works. Run `astro dev`, press `⌘K`, and type.
+
+### 5. Build the digest
+
+The digest is an offline-built markdown tree you commit. It gives the
+agentic loop domain context, ranks keyword results, supplies the glossary (so
+`k8s` finds `kubernetes`), and holds the overlay's suggested questions.
+
+**Recommended — the Claude Code skill.** In
+[Claude Code](https://claude.com/claude-code), install the bundled skill and ask
+for it. It builds the tree inside your subscription — **no API key, no token
+spend**:
+
+```text
+You: build the hev ask digest
+
+Claude runs:
+  ask digest corpus       # emits the sections to distil
+  …writes context/glossary/summaries/suggestions…
+  ask digest assemble     # writes the .hev-ask/ tree
+```
+
+**Or use the CLI** — for CI or outside Claude Code, one API call does the same.
+`--provider` picks who serves it and which key is read:
+
+**Anthropic**
+
+```sh
+export ANTHROPIC_API_KEY=sk-ant-...
+ask digest build  # writes the .hev-ask/ tree
+```
+
+**OpenAI**
+
+```sh
+export OPENAI_API_KEY=sk-...
+ask digest build --provider openai
+```
+
+**OpenRouter**
+
+```sh
+export OPENROUTER_API_KEY=sk-or-...
+ask digest build --provider openrouter
+```
+
+Then verify and commit, however you built it:
+
+```sh
+ask digest verify  # builds the site, checks every anchor resolves
+git add .hev-ask
+```
+
+Both paths are **incremental and hash-gated**, spending model work only on the
+sections that changed, and the integration runs the build automatically during
+`astro build` when a key is present. See
+[Digest creation](digest-creation.md) and the [CLI reference](api/cli.md).
+
+## Enable agentic search
+
+Set the provider's API key in the **server environment** where `/api/ask` runs
+(your host's secrets, or `.env` in local dev). With a key present, pressing
+Enter in the overlay runs the [agentic loop](concepts.md#the-agentic-search-loop) —
+self-issued sub-queries, a grounded answer, and inline deep links. Without one,
+Enter returns keyword results.
+
+**Anthropic**
+
+```sh
+# the default provider — nothing else to configure
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+**OpenAI**
+
+```sh
+# with provider: "openai" in the hevAsk() options
+export OPENAI_API_KEY=sk-...
+```
+
+**OpenRouter**
+
+```sh
+# with provider: "openrouter" in the hevAsk() options
+export OPENROUTER_API_KEY=sk-or-...
+```
+
+OpenAI and OpenRouter need the matching
+[`provider`](api/configuration.md#choosing-a-provider) set in the
+integration options; the Anthropic default needs only the key.
+
+## Verify it works
+
+- **Keyword:** type a single word from a heading; the top result should
+  deep-link to that section (`/docs/page#heading`).
+- **Agentic:** type a multi-word question (or click a suggested one) and press
+  Enter; the footer shows the sub-queries the model ran, and a grounded answer
+  streams in with inline deep links.
+- **Anchors:** `ask digest verify` exits non-zero if any chunk anchor doesn't exist
+  in the built HTML — wire it into CI.
+
+From here, see the full [configuration options](api/configuration.md) or read
+[Concepts](concepts.md) to understand what's happening under the overlay.

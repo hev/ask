@@ -2,4 +2,3 @@ packages:
   - "tpuff-docs-local/*"
   - 'packages/*'
   - 'playground'
-  - 'site'
