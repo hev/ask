@@ -32,9 +32,9 @@ vet:
 typecheck:
 	pnpm typecheck
 
-# The pre-change gauntlet from CLAUDE.md.
+# The pre-change gauntlet from CLAUDE.md. `typecheck` runs `pnpm -r typecheck`,
+# which includes the playground's `astro check`.
 check: vet test typecheck
-	pnpm --filter hev-ask-site check
 
 # Cross-compile the ask binary into the per-platform npm packages.
 npm-binaries:

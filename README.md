@@ -6,12 +6,15 @@ distills a docs site into a committed **ask digest** — a markdown tree your
 coding agent can `tree`, `cat`, and `grep`, and that a `⌘K` overlay answers your
 readers from.
 
-**Using hev ask?** Everything you need is at
-**[hevask.com](https://hevask.com)** — what it is, how it compares, the
-five-minute quick start, and the full API reference. The site searches itself
-with `@hevmind/ask`; press `⌘K` to see it work.
+**Using hev ask?** Everything you need is in **[`docs/`](docs)** — what it is,
+how it compares, the five-minute [quick start](docs/quickstart.md), and the full
+[API reference](docs/README.md#api-reference).
 
-This file is for **contributing** to hev ask. For the product, read the docs.
+hevask.com is retired; it redirects here. The docs live in the repo now, and
+`hevask.com/api/ask` no longer serves the hosted endpoint — point `--endpoint`
+at your own site.
+
+The rest of this file is for **contributing** to hev ask.
 
 ## What's in here
 
@@ -36,12 +39,12 @@ cmd/ask        # the `ask` CLI entrypoint (Go)
 pkg/ask        # the Go core: digest build, read verbs, MCP
 packages/ui    # @hevmind/ask — Astro integration, endpoint, SearchOverlay, bin
 playground     # minimal Astro site for fast local dev of the package
-site           # the public docs + showcase site (hevask.com); dogfoods @hevmind/ask
-docs/rfcs      # engineering RFCs — design alignment before code
+docs           # the product docs, the RFCs, and talk material
 ```
 
 It's a pnpm workspace with a Go module alongside. `packages/ui` is the only
-published package; `playground` and `site` are private consumers.
+published package; `playground` is its private consumer and the dogfooding
+surface.
 
 ## Develop
 
@@ -50,7 +53,6 @@ pnpm install                          # workspace install
 make build                            # build the ask binary into ./bin
 make install                          # install ask into ~/.local/bin for iteration
 pnpm dev                              # the playground site, for package dev
-pnpm --filter hev-ask-site dev        # the docs site on :4334
 ```
 
 Add a provider key (`ANTHROPIC_API_KEY`, or `OPENAI_API_KEY` /
@@ -60,13 +62,12 @@ keyword mode and the committed digest tree is used as-is.
 
 ## Test and check
 
-`make check` runs the full gauntlet (Go vet and tests, the package tests,
-typecheck, and `astro check`). Or run the pieces:
+`make check` runs the full gauntlet (Go vet and tests, the package tests, and
+typecheck, which includes the playground's `astro check`). Or run the pieces:
 
 ```sh
 make test                             # go test ./... + pnpm test
-pnpm typecheck                        # tsc across the workspace
-pnpm --filter hev-ask-site check      # astro check
+pnpm typecheck                        # tsc across the workspace + astro check
 pnpm digest:verify                    # CI anchor gate
 ```
 
@@ -77,7 +78,8 @@ that catches deep-link drift.
 
 Engineering changes that touch the design start as an RFC in
 [`docs/rfcs`](docs/rfcs) — same process as hev layer. Align on the design before
-writing code.
+writing code. Changes to the public surface update the matching page under
+[`docs/`](docs) in the same PR.
 
 ## Releasing
 
@@ -96,4 +98,4 @@ writing code.
    version numbers, not `workspace:*`.
 6. Tag and cut the GitHub release: `git tag vX.Y.Z && git push --tags`, then
    `gh release create vX.Y.Z`.
-7. Bump consumers (`site/`, `../layer/site`) to the new version.
+7. Bump consumers (`playground/`, `../layer/site`) to the new version.

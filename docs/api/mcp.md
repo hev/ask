@@ -1,0 +1,116 @@
+# MCP server
+
+`ask mcp` runs a stdio Model Context Protocol server that is **one tool plus
+instructions.** The tool downloads the whole digest tree to local disk; the
+instructions tell the agent to `tree`, `cat`, and `grep` it with its own
+file tools and to cite every claim with the section's `url`+`anchor`. The
+server doesn't reimplement a search API — it hands the agent a directory and
+points at it.
+
+> **why one tool, not seven**
+>
+> An MCP consumer is already an agent, so it needs your **corpus**, not your
+> reasoning. Give it the files and its own `tree`/`cat`/`grep` become the
+> disclosure ladder (`ls` is cheap, `cat` is opt-in) with no per-hop round-trip
+> through a query tool. Synthesis is the overlay's job, for humans; that's why
+> there's no `answer` tool here.
+
+## Configure
+
+For a checked-out repo (keyless, reads the local tree):
+
+```json
+{
+  "mcpServers": {
+    "docs": {
+      "command": "ask",
+      "args": ["--digest-dir", ".hev-ask", "mcp"]
+    }
+  }
+}
+```
+
+For a deployed site — including any **other** site that runs hev ask, pulled
+into the agent's workspace from anywhere:
+
+```json
+{
+  "mcpServers": {
+    "hevask": {
+      "command": "ask",
+      "args": ["--endpoint", "https://docs.example.com/api/ask", "mcp"]
+    }
+  }
+}
+```
+
+## The tool
+
+| Tool | Arguments | Effect | Returns |
+|---|---|---|---|
+| `fetch_docs` | `{ force?: boolean }` | Materialize the digest tree at a local cache path. | `{ path, contentHash, sections, tree, upToDate }` |
+
+The result carries the **title-tree inline** (so the agent is oriented from the
+first call, with no second round-trip) and writes the section bodies and facts to
+disk under a host-keyed cache directory (e.g. `~/.cache/hev-ask/docs.example.com/`).
+One call bootstraps the whole ladder: the map in the tool result, the deeper
+rungs on disk. From there the agent uses its native tools:
+
+```sh
+tree ~/.cache/hev-ask/docs.example.com        # already returned inline by fetch_docs
+cat  ~/.cache/hev-ask/docs.example.com/overview/quick-start.md
+grep -r "prerender" ~/.cache/hev-ask/docs.example.com
+```
+
+`force: true` re-pulls even when unchanged. Otherwise `fetch_docs` compares the
+remote `contentHash` against the cached tree and re-downloads only on a mismatch
+(`upToDate: true` when nothing changed). Because the corpus is bounded
+(configured collections, no crawler), the whole tree compresses small enough to
+ship in one shot, so there's no per-file delta protocol to reason about.
+
+## The instructions
+
+The server's MCP `instructions` string is the other half of the product. It
+teaches the agent two things:
+
+- **Navigation.** "This is a tree of distilled markdown docs at the returned
+  path. Read the inline title-tree first; `cat` a section only when its title
+  says it's relevant; `grep` for specifics; `_glossary/` widens terms. Don't read
+  every file."
+- **Citation.** "Answer from these files, and cite every claim with the
+  section's `url` + `anchor` frontmatter as a deep link (`/docs/page#anchor`)."
+
+Citation is the part that's easy to lose once an agent synthesizes off local
+files — and it's the entire grounded-deep-link value of hev ask, so the
+instructions make it non-negotiable.
+
+## Co-location
+
+Hydrate-to-disk assumes the MCP server and the agent's file tools share a
+host — true for **stdio** MCP (`ask mcp` over stdin/stdout, the default).
+
+This server intentionally exposes only that stdio path. A remote MCP transport
+where the agent cannot read the server's cache would need a separate
+resource/tool fallback, because returning a local path would not be useful.
+
+## Data sources
+
+`ask mcp` uses the same resolution as the CLI:
+
+- `--endpoint <url>` downloads the deployed tree as a compressed archive from
+  `/api/ask/archive`.
+- Otherwise it reads `--digest-dir` from disk, defaulting to `.hev-ask`.
+
+A just-rebuilt tree is visible on the next `fetch_docs` without restarting the
+server.
+
+## Protocol surface
+
+The server speaks newline-delimited JSON-RPC over stdio. It handles
+`initialize` (returning the `instructions`), `tools/list`, and `tools/call`, plus
+the initialized notification. Unknown JSON-RPC methods return a protocol error;
+tool-level failures return an MCP tool result with `isError: true`.
+
+This keeps the server small: all substantive behavior lives in `pkg/ask`, where
+the standalone CLI, the embeddable command group, and the MCP server share the
+same tree helpers.

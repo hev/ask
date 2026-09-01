@@ -1,0 +1,96 @@
+# Limits
+
+These are the boundaries you should know before adopting hev ask. None of them
+are bugs — they're the edges of what the current design covers.
+
+## The corpus is the content you configure
+
+hev ask searches the markdown you point it at (an Astro content collection, a
+Docusaurus `docs/` tree, a set of globs) and nothing else. There is no crawler,
+no external sitemap ingestion, and no way to index pages that aren't part of the
+configured corpus (a hand-written `.astro` page or a bare React route, for
+example).
+
+If a doc isn't in the configured corpus, it won't appear in search. Put what you
+want searchable where the adapter looks.
+
+## Recall has a keyword ceiling
+
+Retrieval is keyword token-overlap widened by the glossary, not embeddings.
+The agentic loop **grounds its answer** in what retrieval finds; it cannot
+ground in, or link to, what retrieval missed.
+
+In practice the glossary recovers most synonym cases (`k8s` → `kubernetes`,
+abbreviations, product aliases). But if a reader searches in language that
+shares no tokens with your docs *and* isn't covered by the glossary, the right
+section may never enter the candidate pool.
+
+> **the deferred upgrade**
+>
+> Embeddings are the known fix for paraphrase recall and are deliberately not
+> built yet. If your analytics show questions consistently missing, that's the
+> signal it's time — until then, a richer glossary is the cheaper lever.
+
+## The one-shot digest build is bounded; sharded builds are not
+
+`ask digest build` sends your full cleaned corpus to the model in one call. For
+a typical docs site (dozens of pages) this fits comfortably; past ~600KB of
+section text it fails loudly instead of degrading.
+
+Beyond that, use the [sharded build](api/cli.md#sharded-builds-for-large-sites):
+the corpus splits into prefix-stable shards, each distilled in its own fresh
+context, then merged deterministically. Corpus size stops being a context-window
+problem — a Cloudflare-docs-scale corpus (~30MB, ~25k sections) shards into
+~170 pieces and re-distils only the shard a content edit touches. The runtime
+prompt is the remaining scale consideration: the agentic path inlines section
+summaries, so trees with tens of thousands of sections are not yet a fit for
+the answer loop. (A coding agent reading the tree over [MCP](api/mcp.md) has
+no such ceiling — it pages through the files itself.)
+
+## Frontmatter parsing is a flat-YAML subset
+
+The offline build parses frontmatter with a small flat-YAML splitter, not a
+full YAML parser. It handles the common docs schema (string and number fields).
+**Nested frontmatter structures aren't supported** by the build-time parser.
+
+This only affects the offline build reading files from disk; on Astro the
+runtime index uses `getCollection`, which honors your real schema.
+
+## Agentic search adds latency
+
+The agentic path is bounded by `maxIterations` (default 4) Claude round-trips —
+worst case a few seconds. It is not instant, by nature. The keyword path is the
+instant lane and always available; agentic search is the considered one. Tune
+`maxIterations` down if you need a tighter ceiling.
+
+## Anchors depend on the renderer's slugger
+
+Deep links are only correct as long as the heading slugs hev ask generates match
+your renderer's `id` attributes. hev ask uses `github-slugger` by default,
+aligned with Astro and GitHub, and each framework adapter declares its own
+scheme where that differs. Either way it ships an `ask digest verify` command
+that fails if any chunk anchor is missing from the built HTML.
+
+**Wire `verify` into CI.** If your framework ever changes its slugging, the
+verifier is what catches it before a broken link ships.
+
+## The agentic path needs a server somewhere
+
+**Keyword search runs fully static** — the drop-in overlay reads the committed
+digest in the browser, no server required, on any host. The **agentic** path is
+what needs a runtime: on Astro it's the `/api/ask` route rendered on demand, so
+you need a server or hybrid adapter (Node, Cloudflare, Vercel). On other
+frameworks it's the standalone
+[hostable endpoint](api/search-overlay.md#the-hostable-endpoint) you deploy
+and point the overlay at. A purely static site can ship keyword search with
+nothing hosted, but can't answer questions until an endpoint exists somewhere.
+
+## Secrets live server-side
+
+The agentic path needs the provider's API key — `ANTHROPIC_API_KEY` by default,
+`OPENAI_API_KEY` or `OPENROUTER_API_KEY` with the
+[`provider` option](api/configuration.md#choosing-a-provider) — in the
+**server environment** that runs `/api/ask`. The key is never exposed to the
+browser. If the key isn't
+present at runtime, the endpoint serves keyword results — search degrades, it
+doesn't break.

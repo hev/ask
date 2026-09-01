@@ -23,8 +23,8 @@ digest, overlay, CLI, and MCP work whatever framework ships the docs. Astro is
 the only adapter wired end-to-end *today*; extending the same overlay to
 Docusaurus/VitePress/MkDocs (a static drop-in + a hostable endpoint) is designed
 in **RFC 0004**, not yet shipped. When editing engineering code, treat
-multi-framework as in-design; the marketing/docs in `site/` describe the target
-state per a working-backward exercise (nothing is deployed). Don't claim a
+multi-framework as in-design; the docs in `docs/` describe the target state per a
+working-backward exercise (nothing is deployed). Don't claim a
 non-Astro adapter works in code comments or commit messages until it does.
 
 A committed, offline-built **ask digest** (`.hev-ask/`, a markdown tree) gives
@@ -40,27 +40,27 @@ purpose).
 
 ```
 packages/ui    # the package @hevmind/ask — integration, endpoint, search, digest/, CLI
-playground     # minimal Astro site for fast local dev of the package
-site           # the public docs + showcase site (hevask.com); dogfoods @hevmind/ask
+playground     # minimal Astro site for fast local dev of the package; dogfoods @hevmind/ask
+docs           # the product docs (the published surface, read on GitHub)
 docs/rfcs      # engineering RFCs (same process as ../layer); design alignment before code
+docs/talks     # talk outlines and decks
 ```
 
 It's a pnpm workspace. `packages/ui` is the only published artifact; `playground`
-and `site` are private consumers.
+is its private consumer.
 
 ## The audience (informs everything we write)
 
 The reader is an **Astro author evaluating search for a docs site**. Their
 questions, in order, are: *What is this and why over Pagefind/Algolia/Orama? How
 does it work? What can't it do? What am I trading off? How do I add it in five
-minutes? What's the full API?* The docs nav (`site/src/lib/docs.ts`) is
-structured to answer them in that order: Overview (Introduction, Quick start,
-Digest creation, Concepts, Tradeoffs, Limits) then API reference. Per-framework
+minutes? What's the full API?* The contents list in `docs/README.md` is
+structured to answer them in that order: Overview (Quick start, Digest creation,
+Concepts, Tradeoffs, Limits) then API reference. Per-framework
 overlay wiring lives on the SearchOverlay reference page, not an Overview page.
 
 Docs-first is the working principle: when changing the package's public
-surface, update the docs in `site/src/content/docs/` in the same change. The
-docs are also the search corpus, so doc edits are product edits.
+surface, update the docs in `docs/` in the same change.
 
 ## Key facts that are easy to get wrong
 
@@ -89,7 +89,7 @@ docs are also the search corpus, so doc edits are product edits.
 ## Public surface (don't break without a version bump + doc update)
 
 - Default export `hevAsk(options)` — options in `packages/ui/src/types.ts`,
-  documented in `site/.../api/configuration.mdx`.
+  documented in `docs/api/configuration.md`.
 - `@hevmind/ask/components/SearchOverlay.astro` — props `endpoint`, `placeholder`,
   `debounce`; opener attribute `data-hev-ask-open`; localStorage key
   `hev-ask:mode`.
@@ -102,47 +102,37 @@ docs are also the search corpus, so doc edits are product edits.
   was an alias). Flags in `api/cli.mdx`.
 - Virtual modules `virtual:hev-ask/config` and `virtual:hev-ask/digest`.
 
-When any of these change, update the matching `site/src/content/docs/api/*.mdx`
-page in the same PR.
+When any of these change, update the matching `docs/api/*.md` page in the same
+PR.
 
-## The site (hevask.com)
+## The docs (`docs/`)
 
-- Styles, layouts, and doc components are copied from `../layer/site` (the hev
-  house style: dark, JetBrains Mono, `--signal` orange). Reuse them; don't
-  reinvent the look. The five doc components are `Callout`, `Diagram`, `Steps`,
-  `LinkGrid`, and `CodeTabs` (tabbed code blocks with a copy button; a `labels`
-  prop for same-language variants like the provider examples). Standalone code
-  blocks get a floating copy button from `DocsLayout`.
-- Content lives in `site/src/content/docs/**`. Frontmatter schema
-  (`content.config.ts`): `title`, `description`, `group`, `order` — all
-  required. Nav order is driven by `site/src/lib/docs.ts`, not by `order` alone.
-- ASCII architecture diagrams live in `site/src/lib/diagrams.ts`.
-- `/llms.txt` and `/llms-full.txt` are generated from the **ask digest**:
-  `/llms-full.txt` is the distilled section tree (summaries + verbatim facts +
-  source deep links + glossary), not a raw doc dump; `/llms.txt` is the curated
-  docs-nav map with its orientation blurb and glossary drawn from the digest.
-  The digest *is* the site's llms.txt.
-- **Hosting:** Cloudflare Pages, project `hev-ask`, account
-  `ce0c7a0a6b9935ddf1a641fd32f596b5`. `pnpm --filter hev-ask-site run deploy`
-  builds and `wrangler pages deploy`s (`run` is required — pnpm's built-in
-  `deploy` command shadows the script). The project's production branch is
-  `main`; deploying from another git branch creates only a preview, so pass
-  `--branch=main` to `wrangler pages deploy` to update production (custom
-  domains serve production only). The API key for the live agentic path is
-  a server secret, never bundled. **hevask.com is the canonical domain**
-  (matches hevmind/hevlayer); askhev.com stays registered and 301s to it via
-  zone-level Redirect Rules in the Cloudflare dashboard (one on the askhev.com
-  zone for everything, one on the hevask.com zone for www→apex). Pages
-  `_redirects` files cannot match on hostname, so don't move the redirect
-  there. All four hostnames are attached as custom domains on the project.
+- The docs are **plain GitHub-flavored markdown read on GitHub**. There is no
+  docs site: hevask.com was retired and now 301s to
+  `https://github.com/hev/ask`. Don't reintroduce MDX components, frontmatter,
+  or a nav config — a heading and a relative link is the whole toolkit.
+- `docs/README.md` is the entry point and holds the contents list; every other
+  page hangs off it. Cross-links are repo-relative (`api/cli.md#go-library`), so
+  they work on GitHub and in an editor.
+- Example endpoints in the docs use `https://docs.example.com/api/ask`. hev ask
+  hosts no public endpoint — don't put a real hev hostname in a `--endpoint`
+  example.
+- ASCII architecture diagrams are inline fenced blocks. The originals were
+  generated from `site/src/lib/diagrams.ts`; that file is gone, so edit the
+  fences directly.
+- `/llms.txt` and `/llms-full.txt` are still generated **by consumers** from
+  their own digest — that's a product feature, not something this repo serves.
+- **Retired:** the Astro site under `site/`, the Cloudflare Pages project
+  `hev-ask`, and the hosted `/api/ask` endpoint. hevask.com and askhev.com stay
+  registered and redirect to the GitHub repo via zone-level Redirect Rules in
+  the Cloudflare dashboard. If you need the old site, it's in git history before
+  the `site/` removal.
 
 ## Common commands
 
 ```sh
 pnpm install                          # workspace install
-pnpm --filter hev-ask-site dev       # docs site on :4334
-pnpm --filter hev-ask-site build     # build site (runs digest build if key present)
-pnpm --filter hev-ask-site check     # astro check
+pnpm dev                              # the playground site, for package dev
 pnpm test                             # package unit tests
 pnpm typecheck                        # tsc across the workspace
 pnpm exec ask digest build           # (from a site dir) rebuild the digest
@@ -152,8 +142,8 @@ pnpm exec ask digest verify          # (from a site dir) verify anchors
 ## Before changing the package's public API
 
 1. Update `packages/ui/src/types.ts` and the implementation.
-2. Update the matching `site/src/content/docs/api/*.mdx`.
-3. `pnpm test && pnpm typecheck && pnpm --filter hev-ask-site check`.
-4. If anchors or chunking changed, run `ask digest verify` on `site/`.
+2. Update the matching `docs/api/*.md`.
+3. `pnpm test && pnpm typecheck`.
+4. If anchors or chunking changed, run `ask digest verify` on `playground/`.
 5. Public/breaking changes need a version bump in `packages/ui/package.json`
    (see `README.md` for publishing notes).
