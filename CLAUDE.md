@@ -123,10 +123,17 @@ PR.
 - `/llms.txt` and `/llms-full.txt` are still generated **by consumers** from
   their own digest — that's a product feature, not something this repo serves.
 - **Retired:** the Astro site under `site/`, the Cloudflare Pages project
-  `hev-ask`, and the hosted `/api/ask` endpoint. hevask.com and askhev.com stay
-  registered and redirect to the GitHub repo via zone-level Redirect Rules in
-  the Cloudflare dashboard. If you need the old site, it's in git history before
-  the `site/` removal.
+  `hev-ask`, and the hosted `/api/ask` endpoint. If you need the old site, it's
+  in git history before the `site/` removal.
+- **The redirect is a Worker, not a Redirect Rule.** `hevask.com/*` and
+  `www.hevask.com/*` are routed to the `hevask-redirect` Worker on the
+  hevask.com zone, which 301s everything to `https://github.com/hev/ask`.
+  askhev.com still 301s to hevask.com via its own zone rule and chains through.
+  It's a Worker because the API token in use can't write rulesets — if you'd
+  rather have a plain Redirect Rule, replace it in the dashboard and delete both
+  routes and the script. The DNS for both hostnames still CNAMEs to
+  `hev-ask.pages.dev`; the Worker runs ahead of it, so the Pages project can be
+  deleted independently.
 
 ## Common commands
 
