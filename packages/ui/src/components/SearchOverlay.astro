@@ -393,6 +393,24 @@ const {
     background: var(--as-hover);
   }
 
+  .as-answer-body :global(pre) {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    white-space: pre;
+    margin: 0 0 0.7em;
+    padding: 0.75em;
+    border-radius: 5px;
+    background: var(--as-hover);
+  }
+
+  .as-answer-body :global(pre code) {
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    white-space: inherit;
+  }
+
   /* Animated tool-calling status (spinner + cycling verb). Built at runtime, so
      these live under :global() anchored to the scoped .as-answer-body. */
   .as-answer-body :global(.as-thinking) {

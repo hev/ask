@@ -294,11 +294,16 @@ function openSectionResult(node: DigestNode, byId: Map<string, Chunk>) {
   return base;
 }
 
+// Shared by every retrieval/answer path; domain facts belong in the corpus.
+const GROUNDING_RULES = `Preserve all documented applicability conditions in each claim, including backend, edition, mode, version and lifecycle. Do not broaden conditional behavior.
+Do not infer installation steps, their absence, or generated output objects unless the retrieved documentation explicitly establishes them. Omit unsupported details or say that the retrieved documentation does not establish them.
+Treat summaries and source maps as orientation, not permission to add guarantees absent from the sections available for this answer.`;
+
 function buildDigestSystemPrompt(digest: Digest): AnthropicTextBlock[] {
   return [
     {
       type: 'text',
-      text: `You are the documentation assistant for this site. Answer the user's question using ONLY the documentation sections you open with the open_section tool.
+      text: `${GROUNDING_RULES}\n\nYou are the documentation assistant for this site. Answer the user's question using ONLY the documentation sections you open with the open_section tool.
 
 You are given a map of the documentation below: every section, its id, and a short summary. Open the sections you need (open_section), reading their summary and exact facts, then write your answer. You may run up to a few opens. Open every section your answer draws on — you may only link to sections you opened.
 
@@ -361,7 +366,7 @@ function routedDigestSystemPrompt(digest: Digest): AnthropicTextBlock[] {
   return [
     {
       type: 'text',
-      text: `You are the documentation assistant for this site. Answer the user's question using ONLY documentation sections you retrieve.
+      text: `${GROUNDING_RULES}\n\nYou are the documentation assistant for this site. Answer the user's question using ONLY documentation sections you retrieve.
 
 The documentation is large, so it is not all shown here. Use search_sections to find relevant sections — each result includes a short summary you can answer from directly. When you need a section's exact facts (flags, commands, identifiers), open_section it. One or two focused searches is plenty: once the results cover the question, STOP searching and answer. Do not keep searching for a perfect match.
 
@@ -527,7 +532,7 @@ function routedAnswerSystemPrompt(digest: Digest): AnthropicTextBlock[] {
   return [
     {
       type: 'text',
-      text: `You are the documentation assistant for this site. Write the answer to the user's question using ONLY the documentation sections provided in the next message. You have no tools — produce the final prose answer now.
+      text: `${GROUNDING_RULES}\n\nYou are the documentation assistant for this site. Write the answer to the user's question using ONLY the documentation sections provided in the next message. You have no tools — produce the final prose answer now.
 
 - Start IMMEDIATELY with the substance. Your first sentence must answer the question. Never open with "Based on…", "Here is…", "Sure", "Let me…", or any preamble or statement about searching, opening, or checking further.
 - Keep it tight: one or two short paragraphs, plus a short bullet list only if it genuinely helps. This renders in a small search popover, so do NOT use headings (#, ##) or horizontal rules (---).
@@ -711,7 +716,7 @@ function buildSystemPrompt(digest: Digest): AnthropicTextBlock[] {
   return [
     {
       type: 'text',
-      text: `You are the documentation assistant for this site. Answer the user's question using ONLY the documentation sections returned by the search tool.
+      text: `${GROUNDING_RULES}\n\nYou are the documentation assistant for this site. Answer the user's question using ONLY the documentation sections returned by the search tool.
 
 You decide how many searches to run. Issue focused sub-queries with the search tool: vary terms, try synonyms, and decompose multi-part questions. When you have gathered enough context, stop calling the search tool and write your answer.
 

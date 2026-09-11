@@ -105,6 +105,25 @@ Links are validated against the source set the endpoint streamed: any link the
 model emits to a URL outside that set is rendered as plain text, so a
 hallucinated anchor can never become a clickable dead link.
 
+### Answer formatting and grounding
+
+The Astro answer panel renders fenced code blocks with their line breaks and
+indentation intact, including while a closing fence is still arriving. Code is
+literal text: Markdown links and HTML inside it are not interpreted. Long code
+lines scroll horizontally within the answer panel. Simple ordered and unordered
+lists may follow a paragraph without an extra blank line; indented continuation
+text stays with its list item. This compact renderer is not a full Markdown
+implementation (for example, tables and nested lists are not supported).
+
+Clickable answer citations must both match a supplied source URL and use a safe
+HTTP(S) or site-root-relative URL. Source-term overlap is a lightweight citation
+check, not verification that the source supports every claim.
+
+Answer instructions require the model to retain documented applicability
+conditions, and to omit unsupported installation guarantees or generated outputs.
+These instructions reduce unsupported inference; they do not guarantee accuracy.
+Check the cited documentation before relying on a generated answer.
+
 ## Theming
 
 The overlay's markup uses the `as-` class prefix and reads your page's CSS
