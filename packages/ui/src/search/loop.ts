@@ -297,6 +297,7 @@ function openSectionResult(node: DigestNode, byId: Map<string, Chunk>) {
 // Shared by every retrieval/answer path; domain facts belong in the corpus.
 const GROUNDING_RULES = `Preserve all documented applicability conditions in each claim, including backend, edition, mode, version and lifecycle. Do not broaden conditional behavior.
 Do not infer installation steps, their absence, or generated output objects unless the retrieved documentation explicitly establishes them. Omit unsupported details or say that the retrieved documentation does not establish them.
+A list of installed resources does not by itself establish that no separate action is required. When asked whether an action is needed, require explicit procedural support; otherwise state that the supplied sections do not establish the requirement or its absence. Preserve explicitly documented guarantees with their applicability conditions.
 Treat summaries and source maps as orientation, not permission to add guarantees absent from the sections available for this answer.`;
 
 function buildDigestSystemPrompt(digest: Digest): AnthropicTextBlock[] {
