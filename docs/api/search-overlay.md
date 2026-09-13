@@ -123,8 +123,11 @@ Answer instructions require the model to retain documented applicability
 conditions, and to omit unsupported installation guarantees or generated outputs.
 A resource inventory alone does not establish that a separate action is unnecessary.
 For procedural questions, the answer instructions require explicit support or a
-statement that the supplied sections do not establish the requirement or its
-absence. Explicit guarantees remain usable with their documented scope, such as
+statement that the supplied sections do not settle whether the action is needed.
+Inclusion or silence must not imply the action can be omitted. This uncertainty
+applies only to the unsupported claim: directly documented commands and inventory
+should still be given without hedging their support. Explicit guarantees remain
+usable with their documented scope, such as
 fresh installation versus upgrade. These instructions reduce unsupported
 inference; they do not guarantee accuracy. Offline request-construction tests
 verify delivery of the instructions and source context, not model compliance.

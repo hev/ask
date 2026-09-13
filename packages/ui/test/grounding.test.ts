@@ -42,7 +42,7 @@ for (const path of ['legacy','digest','routed']) test(`${path} carries applicabi
 
 // These tests inspect requests, not whether a real model follows the policy.
 const installCases = [
-  { name: 'inventory-only', body: 'The Lumen installer includes the catalog and worker resources. Run `lumen install`.', literals: ['catalog', 'worker', 'lumen install'] },
+  { name: 'inventory-only', body: 'The Lumen installer includes the catalog and worker resources. Run `lumen install`.', literals: ['catalog', 'worker', 'Run', 'lumen install'] },
   { name: 'scoped-procedure', body: 'For fresh installations only, `lumen install` applies the catalog without a separate action. Upgrades require `lumen migrate` before installation.', literals: ['fresh installations only', 'without a separate action', 'Upgrades require', 'lumen migrate'] },
 ];
 for (const path of ['legacy', 'digest', 'routed']) for (const fixture of installCases) {
@@ -72,7 +72,11 @@ for (const path of ['legacy', 'digest', 'routed']) for (const fixture of install
       const policy = JSON.stringify(opts.system);
       assert.match(policy, /A list of installed resources does not by itself establish/);
       assert.match(policy, /require explicit procedural support/);
-      assert.match(policy, /do not establish the requirement or its absence/);
+      assert.match(policy, /establish neither that it is required nor that it is unnecessary/);
+      assert.match(policy, /do not settle whether the action is needed/);
+      assert.match(policy, /do not use inclusion or silence to imply it can be omitted/);
+      assert.match(policy, /Keep this uncertainty local to the unsupported claim/);
+      assert.match(policy, /give directly documented commands and inventory without hedging their support/);
       assert.match(policy, /Preserve explicitly documented guarantees with their applicability conditions/);
       const evidence = JSON.stringify(opts.messages);
       for (const literal of fixture.literals) assert.ok(evidence.includes(literal), literal);
